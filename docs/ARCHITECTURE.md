@@ -180,6 +180,15 @@ Phân trang danh sách giao dịch theo cursor (`occurredAt` + `id`).
 - **Mobile**: refresh token lưu bằng `expo-secure-store` (Keychain iOS / Keystore Android), không dùng AsyncStorage. Layout của từng nhóm tự kiểm tra phiên: `(app)` chuyển sang `/login` khi chưa đăng nhập, `(auth)` chuyển về `/` khi đã đăng nhập, bằng `<Redirect>` (thay màn hiện tại, nên không "back" lại app sau khi đăng xuất). Không dùng `Stack.Protected`: với URL `/` lúc mở app, nhóm `(app)` bị gỡ khỏi navigator và app báo "Unmatched Route". Splash screen giữ nguyên tới khi khôi phục phiên xong, để màn đăng nhập không nháy lên.
 - **Chưa làm**: dọn refresh token hết hạn (job định kỳ), xác minh email, quên mật khẩu.
 
+## Ví (Giai đoạn 2)
+
+- **API**: `GET /wallets` (cả ví đã lưu trữ, kèm số dư), `POST /wallets`, `PATCH /wallets/:id`, `DELETE /wallets/:id` (xóa mềm, `204`). Id kiểm tra bằng `idSchema` (UUID) → sai định dạng là `400`.
+- **Phân quyền**: mọi truy vấn có `userId` trong điều kiện; sửa/xóa dùng `updateMany({ where: { id, userId, deletedAt: null } })` để kiểm tra quyền và ghi trong một câu lệnh. Ví không tồn tại hoặc của người khác đều trả `404` (không phải `403`), để id không dùng được để dò dữ liệu người khác.
+- **Số dư** = số dư ban đầu + thu − chi − chuyển đi + chuyển đến, bỏ qua giao dịch đã xóa mềm. Tính bằng `BigInt` (`computeBalance`, hàm thuần có unit test); cả danh sách chỉ tốn 2 truy vấn `groupBy` (theo `walletId, type` và theo `toWalletId`). Không lưu số dư vào bảng `Wallet`, nên không thể lệch với giao dịch.
+- **Tiền trong JSON**: chuyển `BigInt` ↔ `number` chỉ ở `common/money.ts`; giá trị vượt `Number.MAX_SAFE_INTEGER` thì báo lỗi chứ không làm tròn.
+- **Không đổi tiền tệ** sau khi tạo ví (schema `strictObject` từ chối trường `currency` khi sửa), vì mọi số dư và báo cáo của ví tính theo tiền tệ đó.
+- **Client**: `useWallets`, `useCreateWallet`, `useUpdateWallet`, `useDeleteWallet`; mỗi thay đổi làm mới `['wallets']`, client không tự tính lại số dư.
+
 ## Package dùng chung
 
 - `@finance/shared`

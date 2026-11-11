@@ -4,12 +4,17 @@ import {
   authResponseSchema,
   CLIENT_TYPE_HEADER,
   type ClientType,
+  type CreateWalletInput,
   healthResponseSchema,
   type HealthResponse,
   type LoginInput,
   type RegisterInput,
+  type UpdateWalletInput,
   type User,
   userSchema,
+  type Wallet,
+  walletListSchema,
+  walletSchema,
 } from "@finance/shared";
 
 import { ApiError, isApiError } from "./errors.js";
@@ -308,6 +313,24 @@ export function createApiClient(options: ApiClientOptions) {
       request("/health", { schema: healthResponseSchema, ...(signal ? { signal } : {}) }),
     me: (signal?: AbortSignal): Promise<User> =>
       request("/me", { schema: userSchema, ...(signal ? { signal } : {}) }),
+
+    wallets: {
+      list: (signal?: AbortSignal): Promise<Wallet[]> =>
+        request("/wallets", { schema: walletListSchema, ...(signal ? { signal } : {}) }),
+      create: (body: CreateWalletInput): Promise<Wallet> =>
+        request("/wallets", { method: "POST", body, schema: walletSchema }),
+      update: (id: string, body: UpdateWalletInput): Promise<Wallet> =>
+        request(`/wallets/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          body,
+          schema: walletSchema,
+        }),
+      remove: (id: string): Promise<undefined> =>
+        request(`/wallets/${encodeURIComponent(id)}`, {
+          method: "DELETE",
+          schema: noContentSchema,
+        }),
+    },
   };
 }
 
