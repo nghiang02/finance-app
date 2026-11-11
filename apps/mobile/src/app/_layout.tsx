@@ -11,28 +11,15 @@ import { apiClient } from "@/lib/api";
 // the sign-in screen flash before being sent to the home screen.
 void SplashScreen.preventAutoHideAsync();
 
-function RootNavigator() {
+/** Hides the splash screen once we know whether a stored session exists. */
+function SplashGate() {
   const { status } = useSession();
-  const signedIn = status === "authenticated";
-
   useEffect(() => {
     if (status !== "loading") {
       SplashScreen.hide();
     }
   }, [status]);
-
-  // Protected groups: when `signedIn` flips, Expo Router moves to the other group and drops
-  // the history of the one that became unavailable (no "back" into the app after sign-out).
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={signedIn}>
-        <Stack.Screen name="(app)" />
-      </Stack.Protected>
-      <Stack.Protected guard={!signedIn}>
-        <Stack.Screen name="(auth)" />
-      </Stack.Protected>
-    </Stack>
-  );
+  return null;
 }
 
 export default function RootLayout() {
@@ -49,7 +36,12 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <ApiClientProvider client={apiClient}>
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-          <RootNavigator />
+          <SplashGate />
+          {/* Each group's layout decides whether the user may be there (see (app) and (auth)). */}
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(app)" />
+            <Stack.Screen name="(auth)" />
+          </Stack>
         </ThemeProvider>
       </ApiClientProvider>
     </QueryClientProvider>
