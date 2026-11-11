@@ -3,6 +3,8 @@ packages:
   - "packages/*"
 allowBuilds:
   "@prisma/engines": true
+  # Native password hashing (uses a prebuilt binary when one exists for the platform).
+  argon2: true
   prisma: false
   sharp: false
   unrs-resolver: false

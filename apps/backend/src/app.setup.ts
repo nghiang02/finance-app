@@ -5,9 +5,11 @@ import { HttpAdapterHost } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 
 import { AllExceptionsFilter } from "./common/all-exceptions.filter.js";
+import { API_PREFIX } from "./common/api-prefix.js";
 import { createValidationPipe } from "./common/validation.js";
+import { ENV, type Env } from "./config/env.js";
 
-export const API_PREFIX = "api/v1";
+export { API_PREFIX } from "./common/api-prefix.js";
 
 /**
  * Configure and initialize the app. Shared by main.ts and the e2e tests,
@@ -16,6 +18,9 @@ export const API_PREFIX = "api/v1";
 export async function setupApp(app: NestExpressApplication): Promise<void> {
   // Don't advertise the framework in every response.
   app.disable("x-powered-by");
+  // Behind the Next.js proxy (and later a hosting proxy) the client IP is in X-Forwarded-For.
+  // Only trusted proxies may set it, otherwise anyone could fake an IP to dodge rate limits.
+  app.set("trust proxy", app.get<Env>(ENV).TRUST_PROXY);
   app.setGlobalPrefix(API_PREFIX);
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new AllExceptionsFilter(app.get(HttpAdapterHost)));

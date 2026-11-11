@@ -1,4 +1,16 @@
-import { apiErrorResponseSchema, healthResponseSchema, type HealthResponse } from "@finance/shared";
+import {
+  apiErrorResponseSchema,
+  type AuthResponse,
+  authResponseSchema,
+  CLIENT_TYPE_HEADER,
+  type ClientType,
+  healthResponseSchema,
+  type HealthResponse,
+  type LoginInput,
+  type RegisterInput,
+  type User,
+  userSchema,
+} from "@finance/shared";
 
 import { ApiError } from "./errors.js";
 
@@ -27,9 +39,22 @@ export interface ApiClientOptions {
   baseUrl: string;
   /** Returns the current access token, if any. Wired up in the auth phase. */
   getAccessToken?: () => string | null | undefined | Promise<string | null | undefined>;
+  /**
+   * "mobile" receives the refresh token in the response body (store it in SecureStore).
+   * Web leaves this unset and gets an httpOnly cookie instead.
+   */
+  clientType?: ClientType;
   /** Override for tests or custom runtimes. Defaults to the global fetch. */
   fetch?: typeof fetch;
 }
+
+/** For endpoints that answer 204 No Content. */
+const noContentSchema: ResponseSchema<undefined> = {
+  safeParse: (data) =>
+    data === undefined
+      ? { success: true, data: undefined }
+      : { success: false, error: new Error("Expected an empty response") },
+};
 
 export function buildUrl(baseUrl: string, path: string, query?: QueryParams): string {
   const base = baseUrl.replace(/\/+$/, "");
@@ -75,6 +100,9 @@ export function createApiClient(options: ApiClientOptions) {
     const { method = "GET", query, body, schema, signal } = requestOptions;
 
     const headers: Record<string, string> = { Accept: "application/json" };
+    if (options.clientType) {
+      headers[CLIENT_TYPE_HEADER] = options.clientType;
+    }
     const token = await options.getAccessToken?.();
     if (token) {
       headers.Authorization = `Bearer ${token}`;
@@ -123,6 +151,29 @@ export function createApiClient(options: ApiClientOptions) {
     request,
     health: (signal?: AbortSignal): Promise<HealthResponse> =>
       request("/health", { schema: healthResponseSchema, ...(signal ? { signal } : {}) }),
+
+    auth: {
+      register: (body: RegisterInput): Promise<AuthResponse> =>
+        request("/auth/register", { method: "POST", body, schema: authResponseSchema }),
+      login: (body: LoginInput): Promise<AuthResponse> =>
+        request("/auth/login", { method: "POST", body, schema: authResponseSchema }),
+      /** Mobile passes its stored refresh token; web passes nothing (the cookie is sent). */
+      refresh: (refreshToken?: string): Promise<AuthResponse> =>
+        request("/auth/refresh", {
+          method: "POST",
+          body: refreshToken ? { refreshToken } : {},
+          schema: authResponseSchema,
+        }),
+      logout: (refreshToken?: string): Promise<undefined> =>
+        request("/auth/logout", {
+          method: "POST",
+          body: refreshToken ? { refreshToken } : {},
+          schema: noContentSchema,
+        }),
+    },
+
+    me: (signal?: AbortSignal): Promise<User> =>
+      request("/me", { schema: userSchema, ...(signal ? { signal } : {}) }),
   };
 }
 

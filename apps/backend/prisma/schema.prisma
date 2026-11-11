@@ -157,6 +157,9 @@ model RefreshToken {
   userId    String
   /// SHA-256 hash of the token. The raw token is never stored.
   tokenHash String    @unique
+  /// Every token rotated from the same login shares a family. If a revoked token is used again,
+  /// someone kept a copy, so the whole family (that login on every device) is revoked.
+  familyId  String
   expiresAt DateTime  @db.Timestamptz(3)
   revokedAt DateTime? @db.Timestamptz(3)
   createdAt DateTime  @default(now()) @db.Timestamptz(3)
@@ -164,4 +167,5 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([familyId])
 }
