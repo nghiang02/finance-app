@@ -1,0 +1,15 @@
+{
+  "extends": "@finance/typescript-config/base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    // NestJS dependency injection reads constructor types from decorator metadata.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "sourceMap": true
+  },
+  "include": ["src", "test", "prisma.config.ts", "vitest.config.ts"]
+}

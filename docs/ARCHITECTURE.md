@@ -125,6 +125,16 @@ Nguồn chuẩn là `apps/backend/prisma/schema.prisma`. Khác với bản rút 
 - `RefreshToken.tokenHash` là `@unique`, thêm index `userId`.
 - CHECK constraint trong migration `init`: `amount > 0`, `limit > 0`, định dạng `month`, và hình dạng giao dịch (TRANSFER có `toWalletId` khác `walletId` và không có `categoryId`; INCOME/EXPENSE có `categoryId` và không có `toWalletId`).
 
+### Quyết định khi dựng backend (Giai đoạn 0)
+
+- **NestJS 12, ES module** (`"type": "module"`, import tương đối có đuôi `.js`). Prisma Client sinh ở dạng ESM (`moduleFormat = "esm"`).
+- **Validation**: dùng `StandardSchemaValidationPipe` có sẵn của NestJS 12, đăng ký global. Route khai báo schema Zod từ `@finance/shared`, ví dụ `@Body({ schema: createWalletSchema })`. Lỗi trả `400 VALIDATION_ERROR` với `details.issues: [{ path, message }]`.
+- **Định dạng lỗi**: schema và danh sách mã lỗi nằm ở `@finance/shared` (`apiErrorResponseSchema`, `ERROR_CODES`). `AllExceptionsFilter` là nơi duy nhất quyết định response lỗi: `ApiException` giữ nguyên mã; Prisma `P2002` → `409 CONFLICT`, `P2025` → `404 NOT_FOUND`; lỗi 5xx chỉ trả `INTERNAL_ERROR`, chi tiết ghi vào log server.
+- **Biến môi trường**: kiểm tra bằng Zod lúc khởi động (`src/config/env.ts`); sai là app dừng ngay, thông báo lỗi không in giá trị.
+- **Health check**: `GET /api/v1/health` chạy `SELECT 1`; database lỗi → `503 SERVICE_UNAVAILABLE`.
+- **404 ngoài prefix**: từ NestJS 12, request ngoài `/api/v1` không đi qua Nest; `setupApp()` thêm handler dự phòng sau `app.init()` để vẫn trả 404 JSON đúng định dạng. Header `X-Powered-By` bị tắt.
+- **Test**: Vitest (Vite 8 tự phát decorator metadata từ tsconfig). E2E test thay `PrismaService` bằng mock nên không cần database.
+
 ## API (REST, prefix `/api/v1`)
 
 | Nhóm      | Endpoint                                                                                                                         |

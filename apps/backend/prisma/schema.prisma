@@ -8,10 +8,11 @@
 // - Business rules Prisma cannot express live as CHECK constraints in the `init` migration.
 
 generator client {
-  provider        = "prisma-client"
-  output          = "../src/generated/prisma"
-  moduleFormat    = "cjs"
-  previewFeatures = ["partialIndexes"]
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+  previewFeatures     = ["partialIndexes"]
 }
 
 datasource db {

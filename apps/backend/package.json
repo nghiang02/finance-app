@@ -2,7 +2,15 @@
   "name": "backend",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
+    "build": "nest build",
+    "dev": "nest start --watch",
+    "start": "node dist/main.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -10,11 +18,30 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@finance/shared": "workspace:*",
+    "@nestjs/common": "^12.4.2",
+    "@nestjs/core": "^12.4.2",
+    "@nestjs/platform-express": "^12.4.2",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
-    "dotenv": "^18.0.10"
+    "dotenv": "^18.0.10",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "prisma": "^7.10.1"
+    "@finance/eslint-config": "workspace:*",
+    "@finance/typescript-config": "workspace:*",
+    "@nestjs/cli": "^12.0.12",
+    "@nestjs/schematics": "^12.0.13",
+    "@nestjs/testing": "^12.4.2",
+    "@types/node": "^22.20.5",
+    "@types/supertest": "^7.2.1",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "eslint": "^10.14.0",
+    "prisma": "^7.10.1",
+    "supertest": "^7.3.2",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^5.1.0"
   }
 }
