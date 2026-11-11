@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+build/
+.next/
+.expo/
+out/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# env & secrets (never commit)
+.env
+.env.*
+!.env.example
+
+# logs & OS
+*.log
+.DS_Store
+
+# editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
