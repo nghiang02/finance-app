@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push to the same branch/PR cancels the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  NEXT_TELEMETRY_DISABLED: 1
+
+jobs:
+  check:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Throwaway PostgreSQL, only for checking migrations and constraints.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: finance
+          POSTGRES_PASSWORD: finance
+          POSTGRES_DB: finance
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U finance -d finance"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://finance:finance@localhost:5432/finance?schema=public
+      # psql does not accept Prisma's `?schema=` parameter.
+      PSQL_URL: postgresql://finance:finance@localhost:5432/finance
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # pnpm version comes from "packageManager" in package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Restore Turborepo cache
+        uses: actions/cache@v5
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+
+      - name: Lint, typecheck, test, build
+        run: pnpm turbo run lint typecheck test build
+
+      - name: Apply migrations to an empty database
+        run: pnpm --filter backend exec prisma migrate deploy
+
+      - name: Check database constraints
+        working-directory: apps/backend
+        run: |
+          psql "$PSQL_URL" -v ON_ERROR_STOP=1 -f prisma/tests/constraints.sql | tee constraints.out
+          if grep -q '^FAIL' constraints.out || ! grep -q '^PASS' constraints.out; then
+            echo "::error::Database constraint check failed"
+            exit 1
+          fi
