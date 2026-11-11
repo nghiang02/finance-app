@@ -115,7 +115,9 @@ model RefreshToken {
 Ghi chú: JSON không chứa được `BigInt`, nên API trả số tiền dạng `number` (đủ an toàn với VND cá nhân, < 2^53) hoặc `string` nếu sau này cần. Quy ước chuyển đổi đặt ở một chỗ trong backend.
 
 ### Quyết định khi triển khai schema (Giai đoạn 0)
+
 Nguồn chuẩn là `apps/backend/prisma/schema.prisma`. Khác với bản rút gọn ở trên:
+
 - Dùng **Prisma ORM 7** (ghim `^7`). Prisma 8 còn là release candidate, API khác hẳn.
 - Thêm quan hệ khóa ngoại cho `Transaction.walletId/toWalletId/categoryId` và `Budget.categoryId`. Dùng `onDelete: NoAction` để chặn xóa cứng ví/danh mục đang được tham chiếu (ta chỉ xóa mềm), `Cascade` khi xóa `User`.
 - Mọi cột thời gian là `timestamptz`, để `AT TIME ZONE 'Asia/Ho_Chi_Minh'` trong SQL báo cáo tính đúng tháng.
