@@ -25,14 +25,25 @@ export function toValidationIssues(issues: readonly SchemaIssue[]): ValidationIs
  */
 export function createValidationPipe(): StandardSchemaValidationPipe {
   return new StandardSchemaValidationPipe({
-    exceptionFactory: (issues: readonly SchemaIssue[]) => {
-      const details: ValidationErrorDetails = { issues: toValidationIssues(issues) };
-      return new ApiException(
-        HttpStatus.BAD_REQUEST,
-        "VALIDATION_ERROR",
-        "Request validation failed",
-        details,
-      );
-    },
+    exceptionFactory: (issues: readonly SchemaIssue[]) =>
+      validationError(toValidationIssues(issues)),
   });
+}
+
+export function validationError(issues: ValidationIssue[]): ApiException {
+  const details: ValidationErrorDetails = { issues };
+  return new ApiException(
+    HttpStatus.BAD_REQUEST,
+    "VALIDATION_ERROR",
+    "Request validation failed",
+    details,
+  );
+}
+
+/**
+ * For rules a schema cannot check because they need the database (e.g. "the parent category
+ * exists"). Same 400 shape as schema errors, so forms show it next to the field.
+ */
+export function fieldError(path: string, message: string): ApiException {
+  return validationError([{ path, message }]);
 }

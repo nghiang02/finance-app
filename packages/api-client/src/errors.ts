@@ -1,4 +1,9 @@
-import { type ErrorCode, validationErrorDetailsSchema } from "@finance/shared";
+import {
+  type CategoryInUseDetails,
+  categoryInUseDetailsSchema,
+  type ErrorCode,
+  validationErrorDetailsSchema,
+} from "@finance/shared";
 
 /**
  * Codes the client can see: every server ErrorCode, plus failures that happen
@@ -49,6 +54,18 @@ export function describeError(
     return GENERIC_MESSAGE;
   }
   return overrides[error.code] ?? DEFAULT_MESSAGES[error.code] ?? GENERIC_MESSAGE;
+}
+
+/**
+ * The details of a 409 from `DELETE /categories/:id` when the category still has transactions,
+ * or null for any other error. The UI then asks the user to pick a replacement category.
+ */
+export function categoryInUse(error: unknown): CategoryInUseDetails | null {
+  if (!isApiError(error) || error.code !== "CONFLICT") {
+    return null;
+  }
+  const parsed = categoryInUseDetailsSchema.safeParse(error.details);
+  return parsed.success ? parsed.data : null;
 }
 
 /** Field name → first error message, e.g. { email: "Email không hợp lệ" }. */

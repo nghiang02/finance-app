@@ -5,4 +5,5 @@
 export const queryKeys = {
   health: ["health"] as const,
   wallets: ["wallets"] as const,
+  categories: ["categories"] as const,
 };

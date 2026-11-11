@@ -1,8 +1,11 @@
 import type {
+  Category,
+  CreateCategoryInput,
   CreateWalletInput,
   HealthResponse,
   LoginInput,
   RegisterInput,
+  UpdateCategoryInput,
   UpdateWalletInput,
   User,
   Wallet,
@@ -136,6 +139,66 @@ export function useDeleteWallet(): UseMutationResult<undefined, ApiError, string
   const invalidate = useInvalidateWallets();
   return useMutation<undefined, ApiError, string>({
     mutationFn: (id) => client.wallets.remove(id),
+    onSuccess: invalidate,
+  });
+}
+
+/** Flat list of active categories; nest it with `buildCategoryTree` from @finance/shared. */
+export function useCategories(): UseQueryResult<Category[], ApiError> {
+  const client = useApiClient();
+  return useQuery<Category[], ApiError>({
+    queryKey: queryKeys.categories,
+    queryFn: ({ signal }) => client.categories.list(signal),
+  });
+}
+
+function useInvalidateCategories() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: queryKeys.categories });
+}
+
+export function useCreateCategory(): UseMutationResult<Category, ApiError, CreateCategoryInput> {
+  const client = useApiClient();
+  const invalidate = useInvalidateCategories();
+  return useMutation<Category, ApiError, CreateCategoryInput>({
+    mutationFn: (input) => client.categories.create(input),
+    onSuccess: invalidate,
+  });
+}
+
+export interface UpdateCategoryVariables {
+  id: string;
+  changes: UpdateCategoryInput;
+}
+
+export function useUpdateCategory(): UseMutationResult<
+  Category,
+  ApiError,
+  UpdateCategoryVariables
+> {
+  const client = useApiClient();
+  const invalidate = useInvalidateCategories();
+  return useMutation<Category, ApiError, UpdateCategoryVariables>({
+    mutationFn: ({ id, changes }) => client.categories.update(id, changes),
+    onSuccess: invalidate,
+  });
+}
+
+export interface DeleteCategoryVariables {
+  id: string;
+  /** Needed only when the category has transactions (first attempt answers 409). */
+  replacementId?: string;
+}
+
+export function useDeleteCategory(): UseMutationResult<
+  undefined,
+  ApiError,
+  DeleteCategoryVariables
+> {
+  const client = useApiClient();
+  const invalidate = useInvalidateCategories();
+  return useMutation<undefined, ApiError, DeleteCategoryVariables>({
+    mutationFn: ({ id, replacementId }) => client.categories.remove(id, replacementId),
     onSuccess: invalidate,
   });
 }

@@ -2,13 +2,18 @@ import {
   apiErrorResponseSchema,
   type AuthResponse,
   authResponseSchema,
+  type Category,
+  categoryListSchema,
+  categorySchema,
   CLIENT_TYPE_HEADER,
   type ClientType,
+  type CreateCategoryInput,
   type CreateWalletInput,
   healthResponseSchema,
   type HealthResponse,
   type LoginInput,
   type RegisterInput,
+  type UpdateCategoryInput,
   type UpdateWalletInput,
   type User,
   userSchema,
@@ -328,6 +333,29 @@ export function createApiClient(options: ApiClientOptions) {
       remove: (id: string): Promise<undefined> =>
         request(`/wallets/${encodeURIComponent(id)}`, {
           method: "DELETE",
+          schema: noContentSchema,
+        }),
+    },
+
+    categories: {
+      list: (signal?: AbortSignal): Promise<Category[]> =>
+        request("/categories", { schema: categoryListSchema, ...(signal ? { signal } : {}) }),
+      create: (body: CreateCategoryInput): Promise<Category> =>
+        request("/categories", { method: "POST", body, schema: categorySchema }),
+      update: (id: string, body: UpdateCategoryInput): Promise<Category> =>
+        request(`/categories/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          body,
+          schema: categorySchema,
+        }),
+      /**
+       * Also deletes its children. If they have transactions, pass `replacementId` to move them;
+       * without it the server answers 409 (see `categoryInUse`).
+       */
+      remove: (id: string, replacementId?: string): Promise<undefined> =>
+        request(`/categories/${encodeURIComponent(id)}`, {
+          method: "DELETE",
+          query: { replacementId },
           schema: noContentSchema,
         }),
     },
