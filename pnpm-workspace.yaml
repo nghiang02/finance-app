@@ -41,6 +41,7 @@ minimumReleaseAgeExclude:
   - expo-symbols@58.0.5
   - expo-web-browser@58.0.8
   - expo@58.0.24
+  - expo-secure-store@58.0.3
 
 # One version for libraries that must be a single instance per app.
 # Two copies of React (or of TanStack Query) means two contexts: hooks in
