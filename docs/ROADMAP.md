@@ -4,8 +4,8 @@
 
 ## Giai đoạn 0 – Nền móng
 
-- [ ] Tạo monorepo (pnpm + Turborepo), cấu hình TypeScript, ESLint, Prettier dùng chung
-- [ ] docker-compose PostgreSQL, Prisma schema đầu tiên, migration `init`
+- [x] Tạo monorepo (pnpm + Turborepo), cấu hình TypeScript, ESLint, Prettier dùng chung
+- [x] docker-compose PostgreSQL, Prisma schema đầu tiên, migration `init`
 - [ ] Khung NestJS: prefix `/api/v1`, Zod pipe, filter lỗi, cấu hình `.env`
 - [ ] Khung Next.js và Expo chạy được, kết nối `@finance/shared`, `@finance/api-client`
 - [ ] GitHub Actions: lint + typecheck + test cho mỗi PR
