@@ -174,6 +174,7 @@ Phân trang danh sách giao dịch theo cursor (`occurredAt` + `id`).
 - **Web vs mobile**: header `x-client-type: mobile` → refresh token trong body; còn lại → cookie `finance_rt` (`httpOnly`, `SameSite=Lax`, `Path=/api/v1/auth`, `Secure` khi production). Refresh/logout trả token mới qua đúng kênh token cũ được gửi lên, nên script trong trình duyệt không đổi được cookie thành token đọc được.
 - **Giới hạn tần suất**: `@nestjs/throttler`, mặc định 300 request/phút/IP; đăng ký và đăng nhập 10/phút; refresh và logout 30/phút. `TRUST_PROXY` (mặc định `loopback`) quyết định proxy nào được tin `X-Forwarded-For`. Bộ đếm nằm trong bộ nhớ: khi chạy nhiều instance cần chuyển sang Redis.
 - **Test**: integration test chạy trên PostgreSQL thật (`TEST_DATABASE_URL`, tên DB phải kết thúc bằng `_test`, bị xóa sạch mỗi test); migration tự chạy trong `test/global-setup.ts`.
+- **Danh mục mặc định**: `DEFAULT_CATEGORIES` trong `@finance/shared` (12 danh mục gốc, 19 tính cả con; icon là emoji để web và mobile hiển thị giống nhau). `register` tạo user → danh mục mặc định → phiên đăng nhập trong **một** `prisma.$transaction`; lỗi ở bất kỳ bước nào thì không lưu gì. Id danh mục cha sinh sẵn bằng `randomUUID()` để chèn cha và con bằng hai lệnh `createMany`.
 - **Chưa làm**: dọn refresh token hết hạn (job định kỳ), xác minh email, quên mật khẩu.
 
 ## Package dùng chung

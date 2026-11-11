@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 
+import { CategoriesModule } from "../categories/categories.module.js";
 import { ENV, type Env } from "../config/env.js";
 import { AccessTokenGuard } from "./access-token.guard.js";
 import { AuthController } from "./auth.controller.js";
@@ -12,6 +13,7 @@ import { TokenService } from "./token.service.js";
 
 @Module({
   imports: [
+    CategoriesModule,
     JwtModule.registerAsync({
       inject: [ENV],
       useFactory: (env: Env) => ({
