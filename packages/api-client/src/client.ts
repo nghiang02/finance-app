@@ -12,7 +12,7 @@ import {
   userSchema,
 } from "@finance/shared";
 
-import { ApiError } from "./errors.js";
+import { ApiError, isApiError } from "./errors.js";
 
 /**
  * Anything with Zod's `safeParse` shape. Typed structurally so this package
@@ -34,16 +34,35 @@ export interface RequestOptions<T> {
   signal?: AbortSignal;
 }
 
+/** Where a mobile app keeps its refresh token between launches (e.g. expo-secure-store). */
+export interface RefreshTokenStorage {
+  get(): Promise<string | null>;
+  set(token: string): Promise<void>;
+  clear(): Promise<void>;
+}
+
+export type SessionStatus = "loading" | "authenticated" | "unauthenticated";
+
+export interface SessionState {
+  status: SessionStatus;
+  user: User | null;
+}
+
 export interface ApiClientOptions {
   /** Base URL including the version prefix, e.g. "http://localhost:3000/api/v1". */
   baseUrl: string;
-  /** Returns the current access token, if any. Wired up in the auth phase. */
-  getAccessToken?: () => string | null | undefined | Promise<string | null | undefined>;
   /**
-   * "mobile" receives the refresh token in the response body (store it in SecureStore).
-   * Web leaves this unset and gets an httpOnly cookie instead.
+   * "mobile" receives the refresh token in the response body and keeps it in
+   * `refreshTokenStorage`. Web leaves both unset: the httpOnly cookie carries it.
    */
   clientType?: ClientType;
+  refreshTokenStorage?: RefreshTokenStorage;
+  /**
+   * Runs a token refresh exclusively. Web passes a `navigator.locks` wrapper so tabs refresh
+   * one after another: the second tab then sends the cookie the first one just rotated,
+   * instead of reusing the old token (which the server treats as theft).
+   */
+  refreshLock?: (run: () => Promise<boolean>) => Promise<boolean>;
   /** Override for tests or custom runtimes. Defaults to the global fetch. */
   fetch?: typeof fetch;
 }
@@ -93,19 +112,37 @@ function toApiError(status: number, payload: unknown): ApiError {
   );
 }
 
+function isUnauthorized(error: unknown): boolean {
+  return isApiError(error) && error.status === 401;
+}
+
 export function createApiClient(options: ApiClientOptions) {
   const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
+  const storage = options.refreshTokenStorage;
 
-  async function request<T>(path: string, requestOptions: RequestOptions<T>): Promise<T> {
+  // The access token lives only in memory: never in localStorage, where any script could read it.
+  let accessToken: string | null = null;
+  let state: SessionState = { status: "loading", user: null };
+  const listeners = new Set<() => void>();
+  let refreshInFlight: Promise<boolean> | null = null;
+
+  function setState(next: SessionState): void {
+    state = next;
+    for (const listener of listeners) {
+      listener();
+    }
+  }
+
+  /** One HTTP round trip, no retry. */
+  async function send<T>(path: string, requestOptions: RequestOptions<T>): Promise<T> {
     const { method = "GET", query, body, schema, signal } = requestOptions;
 
     const headers: Record<string, string> = { Accept: "application/json" };
     if (options.clientType) {
       headers[CLIENT_TYPE_HEADER] = options.clientType;
     }
-    const token = await options.getAccessToken?.();
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
     }
     if (body !== undefined) {
       headers["Content-Type"] = "application/json";
@@ -147,31 +184,128 @@ export function createApiClient(options: ApiClientOptions) {
     return parsed.data;
   }
 
-  return {
-    request,
-    health: (signal?: AbortSignal): Promise<HealthResponse> =>
-      request("/health", { schema: healthResponseSchema, ...(signal ? { signal } : {}) }),
+  async function applySession(session: AuthResponse): Promise<User> {
+    accessToken = session.accessToken;
+    if (storage && session.refreshToken) {
+      await storage.set(session.refreshToken);
+    }
+    setState({ status: "authenticated", user: session.user });
+    return session.user;
+  }
 
-    auth: {
-      register: (body: RegisterInput): Promise<AuthResponse> =>
-        request("/auth/register", { method: "POST", body, schema: authResponseSchema }),
-      login: (body: LoginInput): Promise<AuthResponse> =>
-        request("/auth/login", { method: "POST", body, schema: authResponseSchema }),
-      /** Mobile passes its stored refresh token; web passes nothing (the cookie is sent). */
-      refresh: (refreshToken?: string): Promise<AuthResponse> =>
-        request("/auth/refresh", {
-          method: "POST",
-          body: refreshToken ? { refreshToken } : {},
-          schema: authResponseSchema,
-        }),
-      logout: (refreshToken?: string): Promise<undefined> =>
-        request("/auth/logout", {
-          method: "POST",
-          body: refreshToken ? { refreshToken } : {},
-          schema: noContentSchema,
-        }),
+  async function endSession(): Promise<void> {
+    accessToken = null;
+    await storage?.clear();
+    setState({ status: "unauthenticated", user: null });
+  }
+
+  async function performRefresh(): Promise<boolean> {
+    const storedToken = storage ? await storage.get() : null;
+    if (storage && !storedToken) {
+      await endSession();
+      return false;
+    }
+    try {
+      const session = await send("/auth/refresh", {
+        method: "POST",
+        body: storedToken ? { refreshToken: storedToken } : {},
+        schema: authResponseSchema,
+      });
+      await applySession(session);
+      return true;
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        await endSession();
+        return false;
+      }
+      // Offline or server error: keep whatever we have and let the caller decide.
+      throw error;
+    }
+  }
+
+  /** Every caller that needs a refresh at the same time shares one request. */
+  function refreshSession(): Promise<boolean> {
+    refreshInFlight ??= (
+      options.refreshLock ? options.refreshLock(performRefresh) : performRefresh()
+    ).finally(() => {
+      refreshInFlight = null;
+    });
+    return refreshInFlight;
+  }
+
+  /**
+   * Authenticated request: on 401 (expired access token) refresh once and retry.
+   * If the refresh fails the session ends and the original 401 is rethrown.
+   */
+  async function request<T>(path: string, requestOptions: RequestOptions<T>): Promise<T> {
+    try {
+      return await send(path, requestOptions);
+    } catch (error) {
+      if (!isUnauthorized(error) || !(await refreshSession())) {
+        throw error;
+      }
+      return send(path, requestOptions);
+    }
+  }
+
+  const session = {
+    getState: (): SessionState => state,
+
+    subscribe: (listener: () => void): (() => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     },
 
+    /** Called once at app start: turns a stored refresh token (or cookie) into a session. */
+    async restore(): Promise<void> {
+      if (state.status === "authenticated") {
+        return;
+      }
+      try {
+        await refreshSession();
+      } catch {
+        // Could not reach the server; show the sign-in screen rather than a spinner forever.
+        if (state.status === "loading") {
+          setState({ status: "unauthenticated", user: null });
+        }
+      }
+    },
+
+    async signIn(input: LoginInput): Promise<User> {
+      return applySession(
+        await send("/auth/login", { method: "POST", body: input, schema: authResponseSchema }),
+      );
+    },
+
+    async signUp(input: RegisterInput): Promise<User> {
+      return applySession(
+        await send("/auth/register", { method: "POST", body: input, schema: authResponseSchema }),
+      );
+    },
+
+    /** Revokes the session on the server (best effort) and always clears it locally. */
+    async signOut(): Promise<void> {
+      const storedToken = storage ? await storage.get() : null;
+      try {
+        await send("/auth/logout", {
+          method: "POST",
+          body: storedToken ? { refreshToken: storedToken } : {},
+          schema: noContentSchema,
+        });
+      } catch {
+        // Offline: the local session still ends; the server token expires on its own.
+      }
+      await endSession();
+    },
+  };
+
+  return {
+    request,
+    session,
+    health: (signal?: AbortSignal): Promise<HealthResponse> =>
+      request("/health", { schema: healthResponseSchema, ...(signal ? { signal } : {}) }),
     me: (signal?: AbortSignal): Promise<User> =>
       request("/me", { schema: userSchema, ...(signal ? { signal } : {}) }),
   };

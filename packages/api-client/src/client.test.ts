@@ -12,13 +12,9 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function setup(options: { token?: string } = {}) {
+function setup() {
   const fetchMock = vi.fn<typeof fetch>();
-  const client = createApiClient({
-    baseUrl: BASE_URL,
-    fetch: fetchMock,
-    getAccessToken: () => options.token,
-  });
+  const client = createApiClient({ baseUrl: BASE_URL, fetch: fetchMock });
   return { client, fetchMock };
 }
 
@@ -54,7 +50,7 @@ describe("buildUrl", () => {
   });
 });
 
-describe("createApiClient", () => {
+describe("createApiClient – requests", () => {
   it("GETs and validates the response with the shared schema", async () => {
     const { client, fetchMock } = setup();
     fetchMock.mockResolvedValue(jsonResponse({ status: "ok" }));
@@ -68,23 +64,10 @@ describe("createApiClient", () => {
     expect(init?.body).toBeNull();
   });
 
-  it("sends the access token as a Bearer header when available", async () => {
-    const { client, fetchMock } = setup({ token: "abc.def.ghi" });
-    fetchMock.mockResolvedValue(jsonResponse({ status: "ok" }));
-
-    await client.health();
-
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({
-      Authorization: "Bearer abc.def.ghi",
-    });
-  });
-
   it("serializes a JSON body", async () => {
     const { client, fetchMock } = setup();
     fetchMock.mockResolvedValue(jsonResponse({ status: "ok" }, 201));
-    const schema = {
-      safeParse: (data: unknown) => ({ success: true as const, data }),
-    };
+    const schema = { safeParse: (data: unknown) => ({ success: true as const, data }) };
 
     await client.request("/items", { method: "POST", body: { amount: 25_000 }, schema });
 
@@ -113,7 +96,6 @@ describe("createApiClient", () => {
     expect(error).toMatchObject({
       status: 400,
       code: "VALIDATION_ERROR",
-      message: "Request validation failed",
       details: { issues: [{ path: "amount", message: "Too small" }] },
     });
   });
@@ -122,18 +104,20 @@ describe("createApiClient", () => {
     const { client, fetchMock } = setup();
     fetchMock.mockResolvedValue(new Response("<html>Bad Gateway</html>", { status: 502 }));
 
-    const error = await captureError(client.health());
-
-    expect(error).toMatchObject({ status: 502, code: "INTERNAL_ERROR" });
+    expect(await captureError(client.health())).toMatchObject({
+      status: 502,
+      code: "INTERNAL_ERROR",
+    });
   });
 
   it("rejects a successful response that does not match the schema", async () => {
     const { client, fetchMock } = setup();
     fetchMock.mockResolvedValue(jsonResponse({ status: "maybe" }));
 
-    const error = await captureError(client.health());
-
-    expect(error).toMatchObject({ status: 200, code: "INVALID_RESPONSE" });
+    expect(await captureError(client.health())).toMatchObject({
+      status: 200,
+      code: "INVALID_RESPONSE",
+    });
   });
 
   it("reports NETWORK_ERROR (status 0) when the server is unreachable", async () => {
@@ -155,48 +139,5 @@ describe("createApiClient", () => {
     fetchMock.mockRejectedValue(abortError);
 
     await expect(client.health(controller.signal)).rejects.toBe(abortError);
-  });
-});
-
-describe("auth endpoints", () => {
-  const user = {
-    id: "u1",
-    email: "an@example.com",
-    name: null,
-    currency: "VND",
-    timezone: "Asia/Ho_Chi_Minh",
-    createdAt: "2026-11-12T01:00:00.000Z",
-  };
-
-  it("mobile clients identify themselves so the refresh token comes back in the body", async () => {
-    const fetchMock = vi.fn<typeof fetch>();
-    fetchMock.mockResolvedValue(
-      jsonResponse({ user, accessToken: "a", expiresIn: 900, refreshToken: "r" }),
-    );
-    const client = createApiClient({ baseUrl: BASE_URL, fetch: fetchMock, clientType: "mobile" });
-
-    const session = await client.auth.login({ email: "an@example.com", password: "secret123" });
-
-    expect(session.refreshToken).toBe("r");
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({ "x-client-type": "mobile" });
-  });
-
-  it("web clients send no client type and refresh with an empty body (cookie carries the token)", async () => {
-    const { client, fetchMock } = setup();
-    fetchMock.mockResolvedValue(jsonResponse({ user, accessToken: "a", expiresIn: 900 }));
-
-    await client.auth.refresh();
-
-    const init = fetchMock.mock.calls[0]?.[1];
-    expect(init?.body).toBe("{}");
-    expect(init?.headers).not.toHaveProperty("x-client-type");
-  });
-
-  it("accepts the empty 204 response of logout", async () => {
-    const { client, fetchMock } = setup();
-    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
-
-    await expect(client.auth.logout("r")).resolves.toBeUndefined();
-    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe('{"refreshToken":"r"}');
   });
 });

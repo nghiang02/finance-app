@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Finance App",
+  title: { default: "Finance App", template: "%s · Finance App" },
   description: "Quản lý tài chính cá nhân",
 };
 
