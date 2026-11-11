@@ -4,8 +4,21 @@ import { ApiClientProvider, createApiClient, shouldRetryRequest } from "@finance
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
-// Same-origin path; next.config.ts rewrites it to the backend.
-const apiClient = createApiClient({ baseUrl: "/api/v1" });
+/**
+ * Tabs share the refresh-token cookie. Refreshing one tab at a time means the next tab sends
+ * the cookie the previous one just rotated, instead of the old one (which the server treats
+ * as a stolen token and revokes the whole session).
+ */
+function refreshLock(run: () => Promise<boolean>): Promise<boolean> {
+  if (typeof navigator === "undefined" || !("locks" in navigator)) {
+    return run();
+  }
+  return navigator.locks.request("finance-auth-refresh", run);
+}
+
+// Same-origin path; next.config.ts rewrites it to the backend. Web has no refreshTokenStorage:
+// the refresh token stays in an httpOnly cookie that JavaScript cannot read.
+const apiClient = createApiClient({ baseUrl: "/api/v1", refreshLock });
 
 function makeQueryClient(): QueryClient {
   return new QueryClient({
