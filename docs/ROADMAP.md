@@ -18,7 +18,7 @@
 
 ## Giai đoạn 2 – Ví và danh mục
 
-- [ ] CRUD ví, trả kèm số dư hiện tại
+- [x] CRUD ví, trả kèm số dư hiện tại
 - [ ] CRUD danh mục (cha-con, icon, màu)
 - [ ] Giao diện quản lý ví và danh mục (web + mobile)
 

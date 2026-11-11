@@ -1,4 +1,12 @@
-import type { HealthResponse, LoginInput, RegisterInput, User } from "@finance/shared";
+import type {
+  CreateWalletInput,
+  HealthResponse,
+  LoginInput,
+  RegisterInput,
+  UpdateWalletInput,
+  User,
+  Wallet,
+} from "@finance/shared";
 import {
   useMutation,
   type UseMutationResult,
@@ -79,5 +87,55 @@ export function useHealth(): UseQueryResult<HealthResponse, ApiError> {
   return useQuery<HealthResponse, ApiError>({
     queryKey: queryKeys.health,
     queryFn: ({ signal }) => client.health(signal),
+  });
+}
+
+/** All wallets of the signed-in user, each with its current balance. */
+export function useWallets(): UseQueryResult<Wallet[], ApiError> {
+  const client = useApiClient();
+  return useQuery<Wallet[], ApiError>({
+    queryKey: queryKeys.wallets,
+    queryFn: ({ signal }) => client.wallets.list(signal),
+  });
+}
+
+/**
+ * Wallet mutations refetch the wallet list afterwards: balances are computed by the server,
+ * so the client never tries to recalculate them on its own.
+ */
+function useInvalidateWallets() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: queryKeys.wallets });
+}
+
+export function useCreateWallet(): UseMutationResult<Wallet, ApiError, CreateWalletInput> {
+  const client = useApiClient();
+  const invalidate = useInvalidateWallets();
+  return useMutation<Wallet, ApiError, CreateWalletInput>({
+    mutationFn: (input) => client.wallets.create(input),
+    onSuccess: invalidate,
+  });
+}
+
+export interface UpdateWalletVariables {
+  id: string;
+  changes: UpdateWalletInput;
+}
+
+export function useUpdateWallet(): UseMutationResult<Wallet, ApiError, UpdateWalletVariables> {
+  const client = useApiClient();
+  const invalidate = useInvalidateWallets();
+  return useMutation<Wallet, ApiError, UpdateWalletVariables>({
+    mutationFn: ({ id, changes }) => client.wallets.update(id, changes),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteWallet(): UseMutationResult<undefined, ApiError, string> {
+  const client = useApiClient();
+  const invalidate = useInvalidateWallets();
+  return useMutation<undefined, ApiError, string>({
+    mutationFn: (id) => client.wallets.remove(id),
+    onSuccess: invalidate,
   });
 }

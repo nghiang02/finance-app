@@ -7,6 +7,7 @@ import { AuthModule } from "./auth/auth.module.js";
 import { ConfigModule } from "./config/config.module.js";
 import { HealthModule } from "./health/health.module.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
+import { WalletsModule } from "./wallets/wallets.module.js";
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PrismaModule } from "./prisma/prisma.module.js";
     ThrottlerModule.forRoot({ throttlers: [{ name: "default", ttl: minutes(1), limit: 300 }] }),
     AuthModule,
     HealthModule,
+    WalletsModule,
   ],
   providers: [
     // Global guards run in this order: rate limit first, then authentication.
