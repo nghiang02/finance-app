@@ -2,17 +2,19 @@ import {
   apiErrorResponseSchema,
   authResponseSchema,
   CLIENT_TYPE_HEADER,
+  DEFAULT_CATEGORIES,
   userSchema,
 } from "@finance/shared";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppModule } from "../src/app.module.js";
 import { setupApp } from "../src/app.setup.js";
 import { REFRESH_COOKIE_NAME } from "../src/auth/refresh-cookie.service.js";
 import { hashRefreshToken } from "../src/auth/token.service.js";
+import { CategoriesService } from "../src/categories/categories.service.js";
 import { ENV, type Env } from "../src/config/env.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
 import { getTestDatabaseUrl } from "./test-database.js";
@@ -143,6 +145,50 @@ describe.skipIf(!databaseUrl)("Auth (integration, real database)", () => {
 
       expect(res.status).toBe(400);
       expect(parseError(res.body).code).toBe("VALIDATION_ERROR");
+    });
+  });
+
+  describe("default categories", () => {
+    const expectedTotal = DEFAULT_CATEGORIES.reduce(
+      (total, category) => total + 1 + (category.children?.length ?? 0),
+      0,
+    );
+
+    it("creates the default categories, with children linked to their parent", async () => {
+      const { user } = parseAuth((await register()).body);
+
+      const categories = await prisma.category.findMany({ where: { userId: user.id } });
+      expect(categories).toHaveLength(expectedTotal);
+
+      const food = categories.find((c) => c.name === "Ăn uống" && c.parentId === null);
+      const coffee = categories.find((c) => c.name === "Cà phê");
+      expect(food).toMatchObject({ type: "EXPENSE", icon: "🍜", color: "#F97316" });
+      // Children inherit the parent's type and color.
+      expect(coffee).toMatchObject({ parentId: food?.id, type: "EXPENSE", color: "#F97316" });
+      expect(categories.filter((c) => c.type === "INCOME").map((c) => c.name)).toContain("Lương");
+    });
+
+    it("gives every user their own copy", async () => {
+      const a = parseAuth((await register({ email: "a@example.com", password: PASSWORD })).body);
+      const b = parseAuth((await register({ email: "b@example.com", password: PASSWORD })).body);
+
+      expect(await prisma.category.count({ where: { userId: a.user.id } })).toBe(expectedTotal);
+      expect(await prisma.category.count({ where: { userId: b.user.id } })).toBe(expectedTotal);
+    });
+
+    it("rolls back the whole sign-up if creating the categories fails", async () => {
+      vi.spyOn(app.get(CategoriesService), "createDefaults").mockRejectedValueOnce(
+        new Error("simulated failure"),
+      );
+
+      const res = await register();
+
+      expect(res.status).toBe(500);
+      expect(parseError(res.body).code).toBe("INTERNAL_ERROR");
+      // No half-created account: no user, no categories, no refresh token.
+      expect(await prisma.user.count()).toBe(0);
+      expect(await prisma.category.count()).toBe(0);
+      expect(await prisma.refreshToken.count()).toBe(0);
     });
   });
 

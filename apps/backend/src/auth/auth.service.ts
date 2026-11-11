@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { AuthResponse, LoginRequest, RegisterRequest, User as UserDto } from "@finance/shared";
 import { HttpStatus, Injectable } from "@nestjs/common";
 
+import { CategoriesService } from "../categories/categories.service.js";
 import { ApiException } from "../common/api-exception.js";
 import { Prisma, type User } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -38,8 +39,13 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly passwords: PasswordService,
     private readonly tokens: TokenService,
+    private readonly categories: CategoriesService,
   ) {}
 
+  /**
+   * User, default categories and the first session are created in one transaction:
+   * if any step fails, nothing is saved (no account without categories).
+   */
   async register(input: RegisterRequest): Promise<IssuedSession> {
     const passwordHash = await this.passwords.hash(input.password);
     try {
@@ -47,6 +53,7 @@ export class AuthService {
         const user = await tx.user.create({
           data: { email: input.email, passwordHash, name: input.name ?? null },
         });
+        await this.categories.createDefaults(tx, user.id);
         return this.issueSession(tx, user);
       });
     } catch (error) {
