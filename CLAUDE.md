@@ -16,7 +16,7 @@ Chi tiết nghiệp vụ: `docs/PROJECT_CONTEXT.md`. Kiến trúc, data model, A
 docker compose up -d                 # bật PostgreSQL
 pnpm dev                             # chạy tất cả app
 pnpm --filter backend dev            # chỉ backend
-pnpm --filter web dev                # chỉ web
+pnpm --filter web dev                # chỉ web (http://localhost:3001)
 pnpm --filter mobile start           # chỉ mobile (Expo)
 pnpm --filter backend prisma migrate dev --name <ten>
 pnpm lint && pnpm typecheck && pnpm test   # chạy trước khi commit

@@ -4,16 +4,19 @@
   "tasks": {
     "db:generate": {
       "inputs": ["prisma/**", "prisma.config.ts"],
-      "outputs": ["src/generated/**"]
+      "outputs": ["src/generated/**"],
+      "passThroughEnv": ["DATABASE_URL"]
     },
     "build": {
       "dependsOn": ["^build", "db:generate"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "env": ["API_PROXY_TARGET", "EXPO_PUBLIC_*"]
     },
     "dev": {
       "dependsOn": ["^build", "db:generate"],
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": ["API_PROXY_TARGET", "EXPO_PUBLIC_*"]
     },
     "lint": {
       "dependsOn": ["^build", "db:generate"]

@@ -1,0 +1,11 @@
+{
+  "extends": "@finance/typescript-config/library.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "jsx": "react-jsx",
+    // fetch/Response/AbortSignal exist in browsers, React Native and Node 18+.
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["src"]
+}

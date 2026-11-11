@@ -135,6 +135,16 @@ Nguồn chuẩn là `apps/backend/prisma/schema.prisma`. Khác với bản rút 
 - **404 ngoài prefix**: từ NestJS 12, request ngoài `/api/v1` không đi qua Nest; `setupApp()` thêm handler dự phòng sau `app.init()` để vẫn trả 404 JSON đúng định dạng. Header `X-Powered-By` bị tắt.
 - **Test**: Vitest (Vite 8 tự phát decorator metadata từ tsconfig). E2E test thay `PrismaService` bằng mock nên không cần database.
 
+### Quyết định khi dựng web và mobile (Giai đoạn 0)
+
+- **Gọi API**: cả hai app dùng `@finance/api-client` (`createApiClient` + `ApiClientProvider` + hook). Mọi response được kiểm tra bằng schema trong `@finance/shared`; mọi lỗi là `ApiError` (`status`, `code`, `details`), `NETWORK_ERROR` khi không tới được máy chủ. TanStack Query không retry lỗi 4xx (`shouldRetryRequest`).
+- **Web gọi API cùng origin**: trình duyệt gọi `/api/v1/*` trên chính web (cổng 3001), `next.config.ts` rewrite sang backend (`API_PROXY_TARGET`). Không cần CORS, và khi deploy web và API khác domain, cookie refresh token (`httpOnly; SameSite=Lax`) vẫn là first-party. Chỉ cân nhắc gọi thẳng + CORS nếu web và API chung domain gốc (vd. `app.` và `api.` cùng một domain).
+- **Mobile tìm backend**: `EXPO_PUBLIC_API_URL` nếu có; khi phát triển thì lấy IP máy đang chạy Metro (`Constants.expoConfig.hostUri`) + cổng 3000, để điện thoại thật cùng Wi-Fi gọi được máy tính.
+- **Font web**: Inter có subset `vietnamese` để dấu tiếng Việt hiển thị cùng một font.
+- **Một bản duy nhất của React và TanStack Query**: phiên bản khai báo một lần trong `catalog:` của `pnpm-workspace.yaml` (React ghim theo Expo SDK). Hai bản khác nhau = hai context → hook trong `@finance/api-client` không thấy provider của app.
+- **Package dùng chung là ES module** (`"type": "module"`). Thư viện như TanStack Query có hai bản build (ESM và CJS); nếu package build ra CommonJS (`require`) còn app dùng `import`, app sẽ nạp cả hai bản và lại có hai context.
+- **ESLint**: backend và các package dùng ESLint 10 + `@finance/eslint-config` (type-aware). Web và mobile dùng ESLint 9 với config chính thức (`eslint-config-next`, `eslint-config-expo`), vì `eslint-plugin-react` bên trong chưa chạy được trên ESLint 10.
+
 ## API (REST, prefix `/api/v1`)
 
 | Nhóm      | Endpoint                                                                                                                         |

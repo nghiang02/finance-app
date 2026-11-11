@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "Library – packages compiled with tsc to dist/ (CommonJS + .d.ts)",
+  "display": "Library – ES module packages compiled with tsc to dist/ (+ .d.ts)",
   "extends": "./base.json",
   "compilerOptions": {
     "module": "NodeNext",
