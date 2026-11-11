@@ -12,7 +12,7 @@
 
 ## Giai đoạn 1 – Tài khoản
 
-- [ ] Đăng ký, đăng nhập, refresh, logout (backend + test)
+- [x] Đăng ký, đăng nhập, refresh, logout (backend + test)
 - [ ] Tạo danh mục mặc định khi đăng ký
 - [ ] Màn đăng nhập/đăng ký trên web và mobile, lưu token an toàn
 

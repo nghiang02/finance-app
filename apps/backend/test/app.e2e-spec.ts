@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { AppModule } from "../src/app.module.js";
 import { setupApp } from "../src/app.setup.js";
+import { Public } from "../src/auth/public.decorator.js";
 import { ENV, type Env } from "../src/config/env.js";
 import { Prisma } from "../src/generated/prisma/client.js";
 import { PrismaService } from "../src/prisma/prisma.service.js";
@@ -20,6 +21,10 @@ const testEnv: Env = {
   NODE_ENV: "test",
   PORT: 0,
   DATABASE_URL: "postgresql://test:test@localhost:5432/test",
+  JWT_ACCESS_SECRET: "test-secret-that-is-long-enough-for-hs256-signing",
+  ACCESS_TOKEN_TTL_SECONDS: 900,
+  REFRESH_TOKEN_TTL_DAYS: 30,
+  TRUST_PROXY: "loopback",
 };
 
 const createItemSchema = z.object({
@@ -29,6 +34,7 @@ const createItemSchema = z.object({
 type CreateItemBody = z.infer<typeof createItemSchema>;
 
 /** Routes that exist only in this test, to exercise validation and error mapping. */
+@Public()
 @Controller("test")
 class TestController {
   @Post("items")
@@ -147,6 +153,17 @@ describe("App (e2e)", () => {
       expect(z.strictObject({ name: z.string(), amount: z.number() }).parse(res.body)).toEqual({
         name: "Coffee",
         amount: 25000,
+      });
+    });
+  });
+
+  describe("authentication", () => {
+    it("protects routes that are not marked @Public()", async () => {
+      const res = await request(app.getHttpServer()).get("/api/v1/me").expect(401);
+
+      expect(parseError(res.body)).toEqual({
+        code: "UNAUTHORIZED",
+        message: "Missing access token",
       });
     });
   });

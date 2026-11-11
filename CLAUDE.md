@@ -14,6 +14,7 @@ Chi tiết nghiệp vụ: `docs/PROJECT_CONTEXT.md`. Kiến trúc, data model, A
 
 ```bash
 docker compose up -d                 # bật PostgreSQL
+docker compose exec postgres createdb -U finance finance_test   # một lần: DB cho integration test
 pnpm dev                             # chạy tất cả app
 pnpm --filter backend dev            # chỉ backend
 pnpm --filter web dev                # chỉ web (http://localhost:3001)

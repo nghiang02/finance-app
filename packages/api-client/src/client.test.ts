@@ -157,3 +157,46 @@ describe("createApiClient", () => {
     await expect(client.health(controller.signal)).rejects.toBe(abortError);
   });
 });
+
+describe("auth endpoints", () => {
+  const user = {
+    id: "u1",
+    email: "an@example.com",
+    name: null,
+    currency: "VND",
+    timezone: "Asia/Ho_Chi_Minh",
+    createdAt: "2026-11-12T01:00:00.000Z",
+  };
+
+  it("mobile clients identify themselves so the refresh token comes back in the body", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    fetchMock.mockResolvedValue(
+      jsonResponse({ user, accessToken: "a", expiresIn: 900, refreshToken: "r" }),
+    );
+    const client = createApiClient({ baseUrl: BASE_URL, fetch: fetchMock, clientType: "mobile" });
+
+    const session = await client.auth.login({ email: "an@example.com", password: "secret123" });
+
+    expect(session.refreshToken).toBe("r");
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({ "x-client-type": "mobile" });
+  });
+
+  it("web clients send no client type and refresh with an empty body (cookie carries the token)", async () => {
+    const { client, fetchMock } = setup();
+    fetchMock.mockResolvedValue(jsonResponse({ user, accessToken: "a", expiresIn: 900 }));
+
+    await client.auth.refresh();
+
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(init?.body).toBe("{}");
+    expect(init?.headers).not.toHaveProperty("x-client-type");
+  });
+
+  it("accepts the empty 204 response of logout", async () => {
+    const { client, fetchMock } = setup();
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+
+    await expect(client.auth.logout("r")).resolves.toBeUndefined();
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe('{"refreshToken":"r"}');
+  });
+});

@@ -166,6 +166,16 @@ Phân trang danh sách giao dịch theo cursor (`occurredAt` + `id`).
 - Mobile: lưu token trong `expo-secure-store`.
 - Web: refresh token trong cookie `httpOnly; Secure; SameSite=Lax`, access token trong bộ nhớ.
 
+### Triển khai (Giai đoạn 1)
+
+- **Mật khẩu**: argon2id (`argon2`). Email không tồn tại vẫn chạy một lần verify giả để thời gian phản hồi không lộ email nào có tài khoản; sai email hay sai mật khẩu đều trả cùng `401 Invalid email or password`.
+- **Access token**: `@nestjs/jwt`, HS256 (ghim thuật toán), payload `{ sub: userId }`, secret `JWT_ACCESS_SECRET` ≥ 32 ký tự. `AccessTokenGuard` là guard toàn cục; route công khai đánh dấu `@Public()`; lấy người dùng bằng `@CurrentUser()`.
+- **Refresh token**: chuỗi ngẫu nhiên 256 bit, DB chỉ lưu SHA-256. Mỗi lần refresh, token cũ bị thu hồi và token mới cùng `familyId` được tạo trong một transaction (`updateMany ... where revokedAt IS NULL` để chỉ một request thắng khi chạy song song). Token đã thu hồi mà bị dùng lại → thu hồi cả family (phát hiện token bị đánh cắp). Hai tab web refresh cùng lúc bằng cùng cookie cũng bị coi là dùng lại: client phải gộp các lần refresh đồng thời (làm ở mục giao diện).
+- **Web vs mobile**: header `x-client-type: mobile` → refresh token trong body; còn lại → cookie `finance_rt` (`httpOnly`, `SameSite=Lax`, `Path=/api/v1/auth`, `Secure` khi production). Refresh/logout trả token mới qua đúng kênh token cũ được gửi lên, nên script trong trình duyệt không đổi được cookie thành token đọc được.
+- **Giới hạn tần suất**: `@nestjs/throttler`, mặc định 300 request/phút/IP; đăng ký và đăng nhập 10/phút; refresh và logout 30/phút. `TRUST_PROXY` (mặc định `loopback`) quyết định proxy nào được tin `X-Forwarded-For`. Bộ đếm nằm trong bộ nhớ: khi chạy nhiều instance cần chuyển sang Redis.
+- **Test**: integration test chạy trên PostgreSQL thật (`TEST_DATABASE_URL`, tên DB phải kết thúc bằng `_test`, bị xóa sạch mỗi test); migration tự chạy trong `test/global-setup.ts`.
+- **Chưa làm**: dọn refresh token hết hạn (job định kỳ), xác minh email, quên mật khẩu.
+
 ## Package dùng chung
 
 - `@finance/shared`
