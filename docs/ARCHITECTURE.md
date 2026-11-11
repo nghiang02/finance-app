@@ -189,6 +189,16 @@ Phân trang danh sách giao dịch theo cursor (`occurredAt` + `id`).
 - **Không đổi tiền tệ** sau khi tạo ví (schema `strictObject` từ chối trường `currency` khi sửa), vì mọi số dư và báo cáo của ví tính theo tiền tệ đó.
 - **Client**: `useWallets`, `useCreateWallet`, `useUpdateWallet`, `useDeleteWallet`; mỗi thay đổi làm mới `['wallets']`, client không tự tính lại số dư.
 
+## Danh mục (Giai đoạn 2)
+
+- **API**: `GET /categories` (danh sách phẳng, cả cha và con; client lồng thành cây bằng `buildCategoryTree`), `POST /categories`, `PATCH /categories/:id`, `DELETE /categories/:id?replacementId=` (`204`). Trả danh sách phẳng để giao dịch tra danh mục theo id trực tiếp; màn hình cần cây thì tự lồng.
+- **Cây tối đa 2 cấp**: danh mục cha phải là danh mục gốc, cùng `type`, cùng người dùng, chưa bị xóa; danh mục đang có con không thể thành con; không chọn chính nó làm cha. Danh mục con không truyền `color` thì lấy màu của cha.
+- **Không đổi `type`** (thu ↔ chi) sau khi tạo, vì giao dịch và ngân sách cũ sẽ bị tính sai phía.
+- **Lỗi nghiệp vụ theo trường**: quy tắc cần đọc database (cha không tồn tại, sai loại...) trả cùng dạng `400 VALIDATION_ERROR` với `issues[].path` (`parentId`, `replacementId`) như lỗi Zod, nên form hiển thị ngay cạnh trường bằng `toFieldErrors`.
+- **Xóa**: xóa mềm danh mục **và các con** trong một `$transaction`. Nếu còn giao dịch (chưa xóa) thì phải có `replacementId` (cùng loại, không thuộc nhánh đang xóa), giao dịch được chuyển sang đó; thiếu thì trả `409 CONFLICT` với `details: { reason: "CATEGORY_IN_USE", transactionCount }` (client đọc bằng `categoryInUse(error)` rồi hỏi người dùng chọn danh mục thay thế). Ngân sách của các danh mục bị xóa cũng bị xóa mềm.
+- **Khóa dòng** (`SELECT ... FOR UPDATE / FOR SHARE` bằng `$queryRaw`, vì Prisma không có API khóa dòng): danh mục đang sửa/xóa bị khóa `FOR UPDATE`, danh mục cha/thay thế bị khóa `FOR SHARE`. Nhờ vậy hai request song song không thể tạo cây 3 cấp, gắn con vào danh mục vừa bị xóa, hay chuyển giao dịch sang danh mục vừa bị xóa. **Giai đoạn 3**: khi tạo/sửa giao dịch cũng phải khóa danh mục `FOR SHARE` và kiểm tra `deletedAt IS NULL` trong cùng transaction, để giao dịch mới không rơi vào danh mục đang bị xóa.
+- **Client**: `useCategories`, `useCreateCategory`, `useUpdateCategory`, `useDeleteCategory({ id, replacementId })`; thay đổi làm mới `['categories']` (từ Giai đoạn 3, xóa danh mục còn phải làm mới `['transactions']` và `['budgets']`).
+
 ## Package dùng chung
 
 - `@finance/shared`
