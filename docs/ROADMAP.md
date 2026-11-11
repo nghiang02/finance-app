@@ -14,7 +14,7 @@
 
 - [x] Đăng ký, đăng nhập, refresh, logout (backend + test)
 - [x] Tạo danh mục mặc định khi đăng ký
-- [ ] Màn đăng nhập/đăng ký trên web và mobile, lưu token an toàn
+- [x] Màn đăng nhập/đăng ký trên web và mobile, lưu token an toàn
 
 ## Giai đoạn 2 – Ví và danh mục
 
