@@ -1,0 +1,166 @@
+// Prisma ORM 7. Keep `prisma`, `@prisma/client` and `@prisma/adapter-pg` pinned to ^7:
+// `prisma@latest` installs the Prisma 8 release candidate, which has a different API.
+//
+// Conventions (see docs/ARCHITECTURE.md):
+// - Money: BigInt in the currency's smallest unit (VND: dong). Never floats.
+// - Time: timestamptz, always written in UTC.
+// - Soft delete: `deletedAt` on Wallet, Category, Transaction, Budget.
+// - Business rules Prisma cannot express live as CHECK constraints in the `init` migration.
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  moduleFormat    = "cjs"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum WalletType {
+  CASH
+  BANK
+  CREDIT_CARD
+  E_WALLET
+  OTHER
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  currency     String   @default("VND")
+  timezone     String   @default("Asia/Ho_Chi_Minh")
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  wallets       Wallet[]
+  categories    Category[]
+  transactions  Transaction[]
+  budgets       Budget[]
+  refreshTokens RefreshToken[]
+}
+
+model Wallet {
+  id             String     @id @default(uuid())
+  userId         String
+  name           String
+  type           WalletType
+  currency       String     @default("VND")
+  /// Smallest currency unit. May be negative (e.g. existing credit card debt).
+  initialBalance BigInt     @default(0)
+  archived       Boolean    @default(false)
+  createdAt      DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime   @updatedAt @db.Timestamptz(3)
+  deletedAt      DateTime?  @db.Timestamptz(3)
+
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[] @relation("TransactionWallet")
+  incomingTransfers Transaction[] @relation("TransactionToWallet")
+
+  @@index([userId])
+}
+
+model Category {
+  id        String       @id @default(uuid())
+  userId    String
+  name      String
+  type      CategoryType
+  icon      String?
+  color     String?
+  parentId  String?
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime?    @db.Timestamptz(3)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent       Category?     @relation("CategoryTree", fields: [parentId], references: [id], onDelete: NoAction)
+  children     Category[]    @relation("CategoryTree")
+  transactions Transaction[]
+  budgets      Budget[]
+
+  @@index([userId])
+  @@index([parentId])
+}
+
+model Transaction {
+  id         String          @id @default(uuid())
+  userId     String
+  type       TransactionType
+  /// Always > 0, smallest currency unit. `type` decides whether it adds or subtracts.
+  amount     BigInt
+  walletId   String
+  /// Destination wallet. Required for TRANSFER, null otherwise.
+  toWalletId String?
+  /// Required for INCOME/EXPENSE, null for TRANSFER.
+  categoryId String?
+  note       String?
+  /// When the transaction happened (UTC). Months are computed in the user's timezone.
+  occurredAt DateTime        @db.Timestamptz(3)
+  createdAt  DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime        @updatedAt @db.Timestamptz(3)
+  deletedAt  DateTime?       @db.Timestamptz(3)
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet   Wallet    @relation("TransactionWallet", fields: [walletId], references: [id], onDelete: NoAction)
+  toWallet Wallet?   @relation("TransactionToWallet", fields: [toWalletId], references: [id], onDelete: NoAction)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: NoAction)
+
+  /// Monthly list + cursor pagination on (occurredAt, id)
+  @@index([userId, occurredAt, id])
+  /// Budget "spent" and by-category reports
+  @@index([userId, categoryId, occurredAt])
+  /// Wallet balance (outgoing / incoming transfers)
+  @@index([walletId])
+  @@index([toWalletId])
+}
+
+model Budget {
+  id         String    @id @default(uuid())
+  userId     String
+  /// null = overall budget for the month
+  categoryId String?
+  /// "YYYY-MM" in the user's timezone (format enforced by a CHECK constraint)
+  month      String    @db.Char(7)
+  /// Smallest currency unit, > 0
+  limit      BigInt
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt  DateTime? @db.Timestamptz(3)
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: NoAction)
+
+  // Partial unique indexes instead of a plain @@unique([userId, categoryId, month]):
+  // 1. Postgres treats NULLs as distinct, so a plain UNIQUE would allow many overall budgets per month.
+  // 2. A soft-deleted budget must not block creating a new one for the same month.
+  @@unique([userId, categoryId, month], map: "Budget_active_category_month_key", where: { deletedAt: null })
+  @@unique([userId, month], map: "Budget_active_overall_month_key", where: { deletedAt: null, categoryId: null })
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  /// SHA-256 hash of the token. The raw token is never stored.
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

@@ -24,3 +24,6 @@ coverage/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# generated Prisma client (run `prisma generate`)
+src/generated/
