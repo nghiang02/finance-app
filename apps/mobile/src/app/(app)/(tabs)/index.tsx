@@ -1,5 +1,10 @@
-import { useCategories, useSession, useWallets } from "@finance/api-client";
-import { buildCategoryTree, WALLET_TYPE_LABELS } from "@finance/shared";
+import { useCategories, useSession, useTransactions, useWallets } from "@finance/api-client";
+import {
+  buildCategoryTree,
+  currentMonth,
+  DEFAULT_TIME_ZONE,
+  WALLET_TYPE_LABELS,
+} from "@finance/shared";
 import { router } from "expo-router";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -10,9 +15,11 @@ import { ListRow } from "@/components/ListRow";
 import { Money } from "@/components/Money";
 import { QueryState } from "@/components/QueryState";
 import { ScreenHeader } from "@/components/ScreenHeader";
+import { TransactionRow } from "@/components/transactions/TransactionRow";
 import { BalanceCard } from "@/components/wallets/BalanceCard";
 import { WalletIcon } from "@/components/wallets/WalletIcon";
 import { useBalanceVisibility } from "@/lib/balance-visibility";
+import { useLookups } from "@/lib/lookups";
 import { useAppTheme } from "@/lib/theme";
 
 export default function HomeScreen() {
@@ -21,13 +28,17 @@ export default function HomeScreen() {
   const wallets = useWallets();
   const categories = useCategories();
   const { hidden } = useBalanceVisibility();
+  const lookups = useLookups();
+  const timeZone = user?.timezone ?? DEFAULT_TIME_ZONE;
+  const recent = useTransactions({ month: currentMonth(timeZone) });
+  const recentItems = recent.data?.pages[0]?.items.slice(0, 5) ?? [];
 
   const name = user?.name ?? user?.email.split("@")[0] ?? "";
   const today = new Intl.DateTimeFormat("vi-VN", {
     weekday: "long",
     day: "numeric",
     month: "long",
-    timeZone: user?.timezone ?? "Asia/Ho_Chi_Minh",
+    timeZone,
   }).format(new Date());
   const activeWallets = (wallets.data ?? []).filter((wallet) => !wallet.archived);
   const expenseRoots = buildCategoryTree(
@@ -44,6 +55,7 @@ export default function HomeScreen() {
           onRefresh={() => {
             void wallets.refetch();
             void categories.refetch();
+            void recent.refetch();
           }}
         />
       }
@@ -118,8 +130,37 @@ export default function HomeScreen() {
         </Card>
 
         <Card
+          title="Giao dịch gần đây"
+          padded={false}
+          action={<TextLink label="Xem tất cả" onPress={() => router.navigate("/transactions")} />}
+        >
+          {recentItems.length === 0 ? (
+            <Text style={[styles.empty, { color: theme.muted }]}>
+              {recent.data
+                ? "Tháng này chưa có giao dịch. Bấm + để ghi khoản đầu tiên."
+                : "Đang tải…"}
+            </Text>
+          ) : (
+            <View style={styles.list}>
+              {recentItems.map((transaction, index) => (
+                <TransactionRow
+                  key={transaction.id}
+                  transaction={transaction}
+                  {...lookups}
+                  hidden={hidden}
+                  separated={index > 0}
+                  onPress={() =>
+                    router.push({ pathname: "/transactions/[id]", params: { id: transaction.id } })
+                  }
+                />
+              ))}
+            </View>
+          )}
+        </Card>
+
+        <Card
           title="Danh mục chi tiêu"
-          action={<TextLink label="Quản lý" onPress={() => router.navigate("/categories")} />}
+          action={<TextLink label="Quản lý" onPress={() => router.push("/categories")} />}
         >
           <View style={styles.grid}>
             {expenseRoots.slice(0, 8).map((category) => (

@@ -1,4 +1,5 @@
 import { type ClientErrorCode, useHealth, useSession, useSignOut } from "@finance/api-client";
+import { router } from "expo-router";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Card } from "@/components/Card";
@@ -41,6 +42,15 @@ export default function AccountScreen() {
             ) : null}
             <Text style={[styles.email, { color: theme.muted }]}>{user?.email}</Text>
           </View>
+        </Card>
+
+        <Card padded={false}>
+          <ListRow
+            leading={<Icon name={ICONS.categories} size={20} color={theme.brand} />}
+            title="Danh mục thu chi"
+            subtitle="Thêm, sửa, sắp xếp danh mục"
+            onPress={() => router.push("/categories")}
+          />
         </Card>
 
         <Card padded={false}>

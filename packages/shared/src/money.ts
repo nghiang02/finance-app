@@ -76,3 +76,20 @@ export function formatMoneyInput(amount: number): string {
   }
   return String(Math.abs(amount)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
+
+/** Largest amount accepted while typing: 13 digits = 9.999.999.999.999 ₫, far below 2^53. */
+const MAX_TYPED_DIGITS = 13;
+
+/**
+ * Formats an amount as the user types it, for a numeric field:
+ * "1500000" → "1.500.000", "1.500.0001" → "15.000.001", "007" → "7", "" → "".
+ * Everything except digits is dropped, so pasting "1,500,000 ₫" also works.
+ * Extra digits beyond the limit are ignored instead of producing an unsafe number.
+ */
+export function normalizeAmountInput(text: string): string {
+  const digits = text
+    .replace(/\D/g, "")
+    .replace(/^0+(?=\d)/, "")
+    .slice(0, MAX_TYPED_DIGITS);
+  return digits === "" ? "" : formatMoneyInput(Number(digits));
+}

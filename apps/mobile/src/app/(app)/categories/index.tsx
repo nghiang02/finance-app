@@ -1,6 +1,6 @@
 import { useCategories } from "@finance/api-client";
 import { buildCategoryTree, type CategoryType } from "@finance/shared";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 
@@ -10,7 +10,6 @@ import { ICONS } from "@/components/Icon";
 import { ListRow } from "@/components/ListRow";
 import { EmptyState, QueryState } from "@/components/QueryState";
 import { RoundButton } from "@/components/RoundButton";
-import { ScreenHeader } from "@/components/ScreenHeader";
 import { Segmented } from "@/components/Segmented";
 import { useAppTheme } from "@/lib/theme";
 
@@ -33,6 +32,7 @@ export default function CategoriesScreen() {
     <ScrollView
       style={{ backgroundColor: theme.canvas }}
       contentContainerStyle={styles.content}
+      contentInsetAdjustmentBehavior="automatic"
       refreshControl={
         <RefreshControl
           refreshing={categories.isRefetching}
@@ -40,11 +40,17 @@ export default function CategoriesScreen() {
         />
       }
     >
-      <ScreenHeader
-        title="Danh mục"
-        action={
-          <RoundButton icon={ICONS.plus} label="Thêm danh mục" onPress={() => addCategory()} />
-        }
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <RoundButton
+              icon={ICONS.plus}
+              label="Thêm danh mục"
+              size={34}
+              onPress={() => addCategory()}
+            />
+          ),
+        }}
       />
       <View style={styles.body}>
         <Segmented options={TYPE_TABS} value={type} onChange={setType} />
@@ -105,6 +111,6 @@ export default function CategoriesScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: 32 },
+  content: { paddingTop: 12, paddingBottom: 32 },
   body: { gap: 12, paddingHorizontal: 16 },
 });

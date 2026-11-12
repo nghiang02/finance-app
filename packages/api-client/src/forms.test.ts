@@ -1,12 +1,15 @@
-import type { Category, Wallet } from "@finance/shared";
+import type { Category, Transaction, Wallet } from "@finance/shared";
 import { describe, expect, it } from "vitest";
 
 import {
   categoryFormValues,
   toCreateCategoryRequest,
+  toCreateTransactionRequest,
   toCreateWalletRequest,
   toUpdateCategoryRequest,
+  toUpdateTransactionRequest,
   toUpdateWalletRequest,
+  transactionFormValues,
   walletFormValues,
 } from "./forms.js";
 
@@ -126,5 +129,107 @@ describe("category form", () => {
     const values = categoryFormValues({ mode: "edit", category: CATEGORY });
     const result = toUpdateCategoryRequest({ ...values, name: "" });
     expect(result.success ? {} : result.errors).toHaveProperty("name");
+  });
+});
+
+const WALLET_ID = "6f1c2d9e-8a4b-4c3d-9e2f-1a2b3c4d5e6f";
+const OTHER_WALLET_ID = "0b6f7c1e-2d3a-4b5c-8d9e-0f1a2b3c4d5e";
+const CATEGORY_ID = "3c2b1a0f-9e8d-4c7b-8a6f-5e4d3c2b1a0f";
+const NOW = new Date("2026-11-12T02:30:00.000Z");
+
+describe("transaction form", () => {
+  it("starts as an expense now, in the given wallet", () => {
+    expect(transactionFormValues({ mode: "create", walletId: WALLET_ID }, NOW)).toEqual({
+      type: "EXPENSE",
+      amount: "",
+      walletId: WALLET_ID,
+      toWalletId: null,
+      categoryId: null,
+      note: "",
+      occurredAt: "2026-11-12T02:30:00.000Z",
+    });
+  });
+
+  it("builds an expense from the typed amount", () => {
+    const values = {
+      ...transactionFormValues({ mode: "create", walletId: WALLET_ID }, NOW),
+      amount: "45.000",
+      categoryId: CATEGORY_ID,
+      note: " Phở ",
+    };
+    expect(toCreateTransactionRequest(values)).toEqual({
+      success: true,
+      data: {
+        type: "EXPENSE",
+        amount: 45_000,
+        walletId: WALLET_ID,
+        categoryId: CATEGORY_ID,
+        occurredAt: "2026-11-12T02:30:00.000Z",
+        note: "Phở",
+      },
+    });
+  });
+
+  it("reports every missing field at once", () => {
+    const values = transactionFormValues({ mode: "create", walletId: null }, NOW);
+    expect(toCreateTransactionRequest(values)).toEqual({
+      success: false,
+      errors: { amount: "Nhập số tiền", walletId: "Chọn ví", categoryId: "Chọn danh mục" },
+    });
+  });
+
+  it("asks for the destination wallet of a transfer and rejects zero", () => {
+    const values = {
+      ...transactionFormValues({ mode: "create", type: "TRANSFER", walletId: WALLET_ID }, NOW),
+      amount: "0",
+    };
+    expect(toCreateTransactionRequest(values)).toEqual({
+      success: false,
+      errors: { amount: "Số tiền phải lớn hơn 0", toWalletId: "Chọn ví nhận" },
+    });
+  });
+
+  it("round-trips an existing transaction into a full update", () => {
+    const transaction: Transaction = {
+      id: "t1",
+      type: "TRANSFER",
+      amount: 1_000_000,
+      walletId: WALLET_ID,
+      toWalletId: OTHER_WALLET_ID,
+      categoryId: null,
+      note: null,
+      occurredAt: "2026-11-10T01:00:00.000Z",
+      createdAt: "2026-11-10T01:00:00.000Z",
+      updatedAt: "2026-11-10T01:00:00.000Z",
+    };
+    const values = transactionFormValues({ mode: "edit", transaction });
+    expect(values.amount).toBe("1.000.000");
+    expect(toUpdateTransactionRequest(values)).toEqual({
+      success: true,
+      data: {
+        type: "TRANSFER",
+        amount: 1_000_000,
+        walletId: WALLET_ID,
+        toWalletId: OTHER_WALLET_ID,
+        categoryId: null,
+        occurredAt: "2026-11-10T01:00:00.000Z",
+        note: null,
+      },
+    });
+  });
+
+  it("clears the destination wallet when a transfer becomes an expense", () => {
+    const values = {
+      ...transactionFormValues({ mode: "create", type: "TRANSFER", walletId: WALLET_ID }, NOW),
+      amount: "200.000",
+      toWalletId: OTHER_WALLET_ID,
+      type: "EXPENSE" as const,
+      categoryId: CATEGORY_ID,
+    };
+    const result = toUpdateTransactionRequest(values);
+    expect(result.success && result.data).toMatchObject({
+      categoryId: CATEGORY_ID,
+      toWalletId: null,
+    });
   });
 });

@@ -25,6 +25,10 @@ export const ICONS = {
   server: { ios: "server.rack", android: "dns" },
   offline: { ios: "icloud.slash", android: "cloud_off" },
   piggy: { ios: "dollarsign.circle.fill", android: "savings" },
+  transactions: { ios: "list.bullet.rectangle.fill", android: "receipt_long" },
+  transfer: { ios: "arrow.left.arrow.right", android: "swap_horiz" },
+  chevronLeft: { ios: "chevron.left", android: "chevron_left" },
+  calendar: { ios: "calendar", android: "calendar_today" },
 } as const satisfies Record<string, IconName>;
 
 interface IconProps {

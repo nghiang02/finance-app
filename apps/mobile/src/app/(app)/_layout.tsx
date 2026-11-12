@@ -30,8 +30,19 @@ export default function AppLayout() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="wallets/new" options={{ ...modal, title: "Thêm ví mới" }} />
       <Stack.Screen name="wallets/[id]" options={{ ...modal, title: "Sửa ví" }} />
+      <Stack.Screen
+        name="categories/index"
+        options={{
+          title: "Danh mục",
+          headerBackTitle: "Quay lại",
+          headerStyle: { backgroundColor: theme.canvas },
+          headerShadowVisible: false,
+        }}
+      />
       <Stack.Screen name="categories/new" options={{ ...modal, title: "Thêm danh mục" }} />
       <Stack.Screen name="categories/[id]" options={{ ...modal, title: "Sửa danh mục" }} />
+      <Stack.Screen name="transactions/new" options={{ ...modal, title: "Thêm giao dịch" }} />
+      <Stack.Screen name="transactions/[id]" options={{ ...modal, title: "Sửa giao dịch" }} />
     </Stack>
   );
 }

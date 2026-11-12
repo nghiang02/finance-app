@@ -207,7 +207,7 @@ Phân trang danh sách giao dịch theo cursor (`occurredAt` + `id`).
 - **Chọn danh mục**: `parentCandidates` và `replacementCandidates` (trong `@finance/shared`) chỉ đưa ra lựa chọn hợp lệ theo đúng quy tắc của server; `flattenCategoryTree` cho thứ tự cha → con trong các ô chọn.
 - **Xóa danh mục**: gọi `DELETE` không kèm danh mục thay thế trước; gặp `409 CATEGORY_IN_USE` thì mới hỏi chuyển giao dịch sang đâu rồi gọi lại. Không cần thêm request đếm giao dịch cho mỗi lần xóa.
 - **Web**: các trang cần đăng nhập nằm trong nhóm route `(app)` với một layout chung (`AuthGate` + `AppShell` có điều hướng). Hộp thoại dùng thẻ `<dialog>` của trình duyệt (tự giữ focus, phím Esc, nền mờ), không cần thư viện UI.
-- **Mobile**: 4 tab dưới (`(app)/(tabs)`: Tổng quan, Ví, Danh mục, Tài khoản) dùng `Tabs` có sẵn trong expo-router; màn thêm/sửa (`wallets/new`, `wallets/[id]`, `categories/new`, `categories/[id]`) mở dạng modal phía trên. Màn sửa đọc từ danh sách đã có trong cache (`useWallets`, `useCategories`) thay vì gọi thêm API lấy một bản ghi. Lựa chọn hiển thị bằng chip (`ChipGroup`), không thêm thư viện picker.
+- **Mobile**: thanh tab dưới `(app)/(tabs)`: Tổng quan · Giao dịch · **(+)** · Ví · Tài khoản, dùng `Tabs` có sẵn trong expo-router (Danh mục mở từ tab Tài khoản và từ Tổng quan). Màn thêm/sửa (`wallets/new`, `wallets/[id]`, `categories/new`, `categories/[id]`, `transactions/new`, `transactions/[id]`) mở dạng modal phía trên. Màn sửa ví/danh mục đọc từ danh sách đã có trong cache (`useWallets`, `useCategories`) thay vì gọi thêm API lấy một bản ghi. Lựa chọn hiển thị bằng chip (`ChipGroup`), không thêm thư viện picker.
 
 ### Hệ thống thiết kế (phong cách app tài chính, tham khảo Money Lover)
 
@@ -231,11 +231,21 @@ Phân trang danh sách giao dịch theo cursor (`occurredAt` + `id`).
   - Giao dịch của ví đã xóa mềm vẫn hiện (giống báo cáo), giao dịch đã xóa thì không.
 - **Client**: `useTransactions(filters)` (`useInfiniteQuery`, `fetchNextPage` khi cuộn tới cuối; bộ lọc được chuẩn hóa để `{ q: "" }` và không có `q` dùng chung cache), `useTransaction(id)`, `useCreateTransaction`, `useUpdateTransaction`, `useDeleteTransaction`; mỗi thay đổi làm mới `['transactions']` và `['wallets']` (số dư). Xóa danh mục cũng làm mới `['transactions']` vì giao dịch đã chuyển sang danh mục thay thế.
 
+### Thêm nhanh giao dịch trên mobile (Giai đoạn 3)
+
+Mục tiêu: ghi một khoản chi **dưới 10 giây** (PROJECT_CONTEXT).
+
+- **Nút (+) ở giữa thanh tab** (route giả `(tabs)/add`, chặn `tabPress` rồi mở modal `transactions/new`): mở được từ mọi tab bằng một chạm.
+- **Thứ tự form theo tần suất**: loại (Chi mặc định) → **số tiền** (bàn phím số mở sẵn, tự thêm dấu chấm khi gõ bằng `normalizeAmountInput`, nút "000" vì bàn phím số không có; ô số tiền chiếm hết bề ngang và giảm cỡ chữ khi số dài, vì ô tự co theo nội dung bị cắt chữ trên Android) → một khối các **dòng chọn thu gọn** (`FieldRow`): Danh mục, Ví (hoặc Từ ví/Đến ví), Ngày giờ; chạm vào dòng thì mở **bảng chọn trượt từ dưới lên** (`PickerSheet`, dựng trên `Modal` của React Native) → ghi chú. Ví mặc định là ví vừa dùng (`lib/last-wallet.ts`), ngày giờ mặc định là bây giờ, nên khoản chi điển hình là: gõ số tiền → chọn danh mục → Lưu.
+- **Ngày giờ**: `@react-native-community/datetimepicker` (bộ chọn gốc của hệ điều hành, có sẵn trong Expo Go): Android mở hộp chọn ngày rồi hộp chọn giờ; iOS hiện lịch và giờ trong bảng trượt lên. Bộ chọn dùng múi giờ của điện thoại, còn nhãn hiển thị dùng múi giờ người dùng (`formatDateTime`).
+- **Logic form dùng chung** (`transactionFormValues`, `toCreateTransactionRequest`, `toUpdateTransactionRequest` trong `@finance/api-client/forms.ts`, có unit test): báo **tất cả** trường thiếu cùng lúc; sửa gửi đủ mọi trường (field của loại kia là `null`) và server kiểm tra lại.
+- **Tab Giao dịch**: chọn tháng (không cho sang tháng tương lai), lọc theo loại, nhóm theo ngày theo múi giờ người dùng (`localDateKey`; "Hôm nay", "Hôm qua"), cuộn tới cuối thì tải trang sau (`useTransactions` + `fetchNextPage`), kéo xuống để tải lại. Chưa có tổng thu/chi của tháng: số liệu đó phải tính trên cả tháng ở server (Giai đoạn 5), không cộng từ các trang đã tải.
+
 ## Package dùng chung
 
 - `@finance/shared`
   - `schemas/`: Zod schema cho từng resource (create/update/query/response) và helper thuần theo resource (`buildCategoryTree`, `parentCandidates`...)
-  - `money.ts`: `formatMoney(amount, currency)`, `parseMoneyInput("1.500.000")`, `formatMoneyInput(1500000)`
+  - `money.ts`: `formatMoney(amount, currency)`, `parseMoneyInput("1.500.000")`, `formatMoneyInput(1500000)`, `normalizeAmountInput` (định dạng khi đang gõ)
   - `wallet-totals.ts`: `totalBalanceByCurrency(wallets)`
   - `date.ts`: `monthRange`, `monthOf`, `currentMonth`, `shiftMonth`, `localDateKey` theo múi giờ người dùng
   - `constants.ts`: danh mục mặc định, bảng màu danh mục

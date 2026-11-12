@@ -4,6 +4,7 @@ import {
   formatMoney,
   formatMoneyInput,
   getCurrencyFractionDigits,
+  normalizeAmountInput,
   parseMoneyInput,
 } from "./money.js";
 
@@ -85,5 +86,25 @@ describe("formatMoneyInput", () => {
 
   it("rejects non-integers", () => {
     expect(() => formatMoneyInput(1.5)).toThrow(RangeError);
+  });
+});
+
+describe("normalizeAmountInput", () => {
+  it.each([
+    ["", ""],
+    ["0", "0"],
+    ["007", "7"],
+    ["1500000", "1.500.000"],
+    ["1.500.0001", "15.000.001"],
+    ["1,500,000 ₫", "1.500.000"],
+    ["abc", ""],
+  ])("%j → %j", (typed, expected) => {
+    expect(normalizeAmountInput(typed)).toBe(expected);
+  });
+
+  it("stops at 13 digits and the result still parses", () => {
+    const typed = normalizeAmountInput("99999999999999999999");
+    expect(typed).toBe("9.999.999.999.999");
+    expect(parseMoneyInput(typed)).toBe(9_999_999_999_999);
   });
 });
