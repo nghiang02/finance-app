@@ -1,4 +1,5 @@
 export * from "./constants.js";
+export * from "./date.js";
 export * from "./money.js";
 export * from "./schemas/auth.js";
 export * from "./schemas/category.js";

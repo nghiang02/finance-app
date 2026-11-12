@@ -15,6 +15,9 @@ import {
   type LoginInput,
   type RegisterInput,
   type Transaction,
+  type TransactionFilters,
+  type TransactionPage,
+  transactionPageSchema,
   transactionSchema,
   type UpdateCategoryInput,
   type UpdateTransactionInput,
@@ -35,6 +38,9 @@ import { ApiError, isApiError } from "./errors.js";
 export interface ResponseSchema<T> {
   safeParse(data: unknown): { success: true; data: T } | { success: false; error: unknown };
 }
+
+/** Filters plus paging, as sent to GET /transactions. */
+export type TransactionListParams = TransactionFilters & { cursor?: string; limit?: number };
 
 export type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 export type QueryParams = Record<string, string | number | boolean | undefined>;
@@ -365,6 +371,12 @@ export function createApiClient(options: ApiClientOptions) {
     },
 
     transactions: {
+      list: (params: TransactionListParams, signal?: AbortSignal): Promise<TransactionPage> =>
+        request("/transactions", {
+          query: { ...params },
+          schema: transactionPageSchema,
+          ...(signal ? { signal } : {}),
+        }),
       get: (id: string, signal?: AbortSignal): Promise<Transaction> =>
         request(`/transactions/${encodeURIComponent(id)}`, {
           schema: transactionSchema,

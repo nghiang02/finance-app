@@ -7,6 +7,8 @@ import type {
   LoginInput,
   RegisterInput,
   Transaction,
+  TransactionFilters,
+  TransactionPage,
   UpdateCategoryInput,
   UpdateTransactionInput,
   UpdateWalletInput,
@@ -14,6 +16,9 @@ import type {
   Wallet,
 } from "@finance/shared";
 import {
+  type InfiniteData,
+  useInfiniteQuery,
+  type UseInfiniteQueryResult,
   useMutation,
   type UseMutationResult,
   useQuery,
@@ -220,6 +225,41 @@ export function useDeleteCategory(): UseMutationResult<
         invalidate(),
         queryClient.invalidateQueries({ queryKey: queryKeys.transactions }),
       ]),
+  });
+}
+
+/**
+ * Drops empty filters ("" or undefined) so `{ month, q: "" }` and `{ month }` share one cache
+ * entry: the query key is compared by value.
+ */
+export function normalizeTransactionFilters(filters: TransactionFilters): TransactionFilters {
+  const normalized: TransactionFilters = { month: filters.month };
+  if (filters.walletId) normalized.walletId = filters.walletId;
+  if (filters.categoryId) normalized.categoryId = filters.categoryId;
+  if (filters.type) normalized.type = filters.type;
+  const q = filters.q?.trim();
+  if (q) normalized.q = q;
+  return normalized;
+}
+
+/**
+ * A month of transactions, page by page (newest first). Render `data.pages.flatMap(p => p.items)`
+ * and call `fetchNextPage()` when the user reaches the end while `hasNextPage` is true.
+ */
+export function useTransactions(
+  filters: TransactionFilters,
+): UseInfiniteQueryResult<InfiniteData<TransactionPage, string | null>, ApiError> {
+  const client = useApiClient();
+  const normalized = normalizeTransactionFilters(filters);
+  return useInfiniteQuery({
+    queryKey: queryKeys.transactionList(normalized),
+    queryFn: ({ pageParam, signal }) =>
+      client.transactions.list(
+        { ...normalized, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   });
 }
 
