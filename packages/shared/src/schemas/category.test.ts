@@ -87,15 +87,30 @@ describe("categoryInUseDetailsSchema", () => {
 });
 
 describe("buildCategoryTree", () => {
-  it("nests children under their parent and keeps the order", () => {
+  it("nests children under their parent", () => {
     const food = category({ id: "a", name: "Ăn uống" });
     const coffee = category({ id: "b", name: "Cà phê", parentId: "a" });
     const salary = category({ id: "c", name: "Lương", type: "INCOME" });
     const market = category({ id: "d", name: "Đi chợ", parentId: "a" });
 
-    expect(buildCategoryTree([coffee, food, salary, market])).toEqual([
+    expect(buildCategoryTree([market, salary, food, coffee])).toEqual([
       { ...food, children: [coffee, market] },
       { ...salary, children: [] },
+    ]);
+  });
+
+  it("sorts in Vietnamese order, not by byte value", () => {
+    const names = ["Xăng xe", "Ăn uống", "Giải trí", "Đi lại", "Chi khác", "Ăn sáng"].map(
+      (name, index) => category({ id: String(index), name }),
+    );
+
+    expect(buildCategoryTree(names).map((node) => node.name)).toEqual([
+      "Ăn sáng",
+      "Ăn uống",
+      "Chi khác",
+      "Đi lại",
+      "Giải trí",
+      "Xăng xe",
     ]);
   });
 

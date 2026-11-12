@@ -68,9 +68,12 @@ export function CategoriesView() {
           }
         />
       ) : (
-        <ul className="grid gap-4 md:grid-cols-2">
+        <ul className="gap-4 md:columns-2">
           {tree.map((parent) => (
-            <li key={parent.id} className="flex flex-col rounded-3xl bg-surface p-2">
+            <li
+              key={parent.id}
+              className="mb-4 flex break-inside-avoid flex-col rounded-3xl bg-surface p-2"
+            >
               <CategoryRow
                 category={parent}
                 detail={
@@ -142,7 +145,9 @@ function CategoryRow({
       >
         <CategoryAvatar icon={category.icon} color={category.color} size={small ? "sm" : "md"} />
         <span className="flex min-w-0 flex-col">
-          <span className={small ? "truncate text-sm font-medium" : "truncate font-semibold"}>
+          <span
+            className={small ? "line-clamp-2 text-sm font-medium" : "line-clamp-2 font-semibold"}
+          >
             {category.name}
           </span>
           {detail ? <span className="text-xs text-muted">{detail}</span> : null}

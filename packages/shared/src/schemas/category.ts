@@ -96,18 +96,29 @@ export interface CategoryNode extends Category {
 }
 
 /**
- * Groups a flat list into top-level categories with their children, keeping the list order.
- * The API returns a flat list so a transaction can look up its category by id directly;
- * screens that show the hierarchy use this.
+ * Vietnamese alphabetical order ("Ăn uống" right after "An", not after "Z").
+ * The database sorts by byte value, so ordering is done here, the same way on web and mobile.
+ */
+const vietnameseCollator = new Intl.Collator("vi", { sensitivity: "base" });
+
+export function compareCategoryNames(a: Pick<Category, "name">, b: Pick<Category, "name">): number {
+  return vietnameseCollator.compare(a.name, b.name);
+}
+
+/**
+ * Groups a flat list into top-level categories with their children, both sorted by name
+ * in Vietnamese order. The API returns a flat list so a transaction can look up its
+ * category by id directly; screens that show the hierarchy use this.
  */
 export function buildCategoryTree(categories: readonly Category[]): CategoryNode[] {
+  const sorted = [...categories].sort(compareCategoryNames);
   const roots = new Map<string, CategoryNode>();
-  for (const category of categories) {
+  for (const category of sorted) {
     if (category.parentId === null) {
       roots.set(category.id, { ...category, children: [] });
     }
   }
-  for (const category of categories) {
+  for (const category of sorted) {
     if (category.parentId !== null) {
       roots.get(category.parentId)?.children.push(category);
     }
