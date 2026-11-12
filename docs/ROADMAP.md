@@ -20,7 +20,7 @@
 
 - [x] CRUD ví, trả kèm số dư hiện tại
 - [x] CRUD danh mục (cha-con, icon, màu)
-- [ ] Giao diện quản lý ví và danh mục (web + mobile)
+- [x] Giao diện quản lý ví và danh mục (web + mobile)
 
 ## Giai đoạn 3 – Giao dịch
 

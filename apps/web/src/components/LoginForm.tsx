@@ -1,17 +1,13 @@
 "use client";
 
-import {
-  describeError,
-  type FieldErrors,
-  serverFieldErrors,
-  toFieldErrors,
-  useSignIn,
-} from "@finance/api-client";
+import { type FieldErrors, serverFieldErrors, toFieldErrors, useSignIn } from "@finance/api-client";
 import { loginRequestSchema } from "@finance/shared";
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
 
+import { FormError } from "@/components/FormError";
 import { TextField } from "@/components/TextField";
+import { Button } from "@/components/ui/Button";
 
 export function LoginForm() {
   const signIn = useSignIn();
@@ -54,22 +50,22 @@ export function LoginForm() {
       />
 
       {signIn.isError ? (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
-          {describeError(signIn.error, { UNAUTHORIZED: "Email hoặc mật khẩu không đúng." })}
-        </p>
+        <FormError
+          error={signIn.error}
+          overrides={{ UNAUTHORIZED: "Email hoặc mật khẩu không đúng." }}
+        />
       ) : null}
 
-      <button
-        type="submit"
-        disabled={signIn.isPending}
-        className="rounded-lg bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-      >
+      <Button type="submit" variant="primary" size="lg" disabled={signIn.isPending}>
         {signIn.isPending ? "Đang đăng nhập…" : "Đăng nhập"}
-      </button>
+      </Button>
 
-      <p className="text-center text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="text-center text-sm text-muted">
         Chưa có tài khoản?{" "}
-        <Link href="/register" className="font-medium text-zinc-900 underline dark:text-zinc-100">
+        <Link
+          href="/register"
+          className="font-semibold text-brand-600 hover:underline dark:text-brand-400"
+        >
           Đăng ký
         </Link>
       </p>

@@ -199,17 +199,37 @@ Phân trang danh sách giao dịch theo cursor (`occurredAt` + `id`).
 - **Khóa dòng** (`SELECT ... FOR UPDATE / FOR SHARE` bằng `$queryRaw`, vì Prisma không có API khóa dòng): danh mục đang sửa/xóa bị khóa `FOR UPDATE`, danh mục cha/thay thế bị khóa `FOR SHARE`. Nhờ vậy hai request song song không thể tạo cây 3 cấp, gắn con vào danh mục vừa bị xóa, hay chuyển giao dịch sang danh mục vừa bị xóa. **Giai đoạn 3**: khi tạo/sửa giao dịch cũng phải khóa danh mục `FOR SHARE` và kiểm tra `deletedAt IS NULL` trong cùng transaction, để giao dịch mới không rơi vào danh mục đang bị xóa.
 - **Client**: `useCategories`, `useCreateCategory`, `useUpdateCategory`, `useDeleteCategory({ id, replacementId })`; thay đổi làm mới `['categories']` (từ Giai đoạn 3, xóa danh mục còn phải làm mới `['transactions']` và `['budgets']`).
 
+## Giao diện ví và danh mục (Giai đoạn 2)
+
+- **Logic form dùng chung** (`@finance/api-client/forms.ts`): `walletFormValues` / `toCreateWalletRequest` / `toUpdateWalletRequest` và `categoryFormValues` / `toCreateCategoryRequest` / `toUpdateCategoryRequest` đổi trạng thái form thành request đã kiểm tra bằng đúng schema của server, hoặc lỗi theo tên trường. Web và mobile chỉ giữ phần giao diện, nên cách đọc số tiền và quy tắc form không thể khác nhau giữa hai app (và có unit test).
+- **Nhập số tiền**: người dùng gõ số không dấu (`1.500.000` hoặc `1500000`), kèm công tắc "Đây là khoản nợ" để thành số âm, vì bàn phím số trên điện thoại không có dấu trừ. `formatMoneyInput` (tự viết, không dùng `Intl`) hiển thị lại đúng chuỗi mà `parseMoneyInput` đọc được.
+- **Tổng số dư**: `totalBalanceByCurrency` cộng các ví chưa lưu trữ theo từng tiền tệ (không cộng lẫn tiền tệ), bằng `BigInt`.
+- **Chọn danh mục**: `parentCandidates` và `replacementCandidates` (trong `@finance/shared`) chỉ đưa ra lựa chọn hợp lệ theo đúng quy tắc của server; `flattenCategoryTree` cho thứ tự cha → con trong các ô chọn.
+- **Xóa danh mục**: gọi `DELETE` không kèm danh mục thay thế trước; gặp `409 CATEGORY_IN_USE` thì mới hỏi chuyển giao dịch sang đâu rồi gọi lại. Không cần thêm request đếm giao dịch cho mỗi lần xóa.
+- **Web**: các trang cần đăng nhập nằm trong nhóm route `(app)` với một layout chung (`AuthGate` + `AppShell` có điều hướng). Hộp thoại dùng thẻ `<dialog>` của trình duyệt (tự giữ focus, phím Esc, nền mờ), không cần thư viện UI.
+- **Mobile**: 4 tab dưới (`(app)/(tabs)`: Tổng quan, Ví, Danh mục, Tài khoản) dùng `Tabs` có sẵn trong expo-router; màn thêm/sửa (`wallets/new`, `wallets/[id]`, `categories/new`, `categories/[id]`) mở dạng modal phía trên. Màn sửa đọc từ danh sách đã có trong cache (`useWallets`, `useCategories`) thay vì gọi thêm API lấy một bản ghi. Lựa chọn hiển thị bằng chip (`ChipGroup`), không thêm thư viện picker.
+
+### Hệ thống thiết kế (phong cách app tài chính, tham khảo Money Lover)
+
+- **Màu**: xanh lá chủ đạo `#2DB84C`; nền xám nhạt, thẻ trắng bo góc lớn (24px); **thu màu xanh dương `#2F80ED`, chi màu đỏ `#EB5757`** (số dư âm cũng màu đỏ). Token ngữ nghĩa giống nhau ở hai app: web trong `apps/web/src/app/globals.css` (`bg-canvas`, `bg-surface`, `bg-field`, `text-ink`, `text-muted`, `brand-*`, `text-income`, `text-expense`), mobile trong `apps/mobile/src/lib/theme.ts` (`useAppTheme()`). Chế độ tối định nghĩa một lần ở token.
+- **Màu dùng chung qua `@finance/shared`**: `WALLET_TYPE_COLORS` (mỗi loại ví một màu), `CATEGORY_COLORS`, `CATEGORY_ICON_SUGGESTIONS`, nên một ví/danh mục trông giống nhau trên web và điện thoại.
+- **Icon**: web dùng `lucide-react` (chỉ đóng gói icon được dùng); mobile dùng `expo-symbols` có sẵn trong Expo (SF Symbols trên iOS, Material Symbols trên Android), khai báo một lần trong `components/Icon.tsx` (`ICONS`). Danh mục dùng emoji trong vòng tròn tô màu nhạt (`CategoryAvatar`).
+- **Font web**: Be Vietnam Pro (thiết kế cho tiếng Việt). Mobile dùng font hệ thống.
+- **Bố cục**: web có sidebar trên màn hình lớn và thanh tab dưới trên điện thoại; mobile có tiêu đề lớn tự vẽ (`ScreenHeader`) ở mỗi tab. Thẻ tổng số dư màu xanh có nút ẩn/hiện số tiền (`useBalanceVisibility`, web nhớ trong `localStorage`).
+
 ## Package dùng chung
 
 - `@finance/shared`
-  - `schemas/`: Zod schema cho từng resource (create/update/query/response)
-  - `money.ts`: `formatMoney(amount, currency)`, `parseMoneyInput("1.500.000")`
-  - `date.ts`: tính khoảng ngày của tháng theo múi giờ
-  - `constants.ts`: danh mục mặc định, loại ví
+  - `schemas/`: Zod schema cho từng resource (create/update/query/response) và helper thuần theo resource (`buildCategoryTree`, `parentCandidates`...)
+  - `money.ts`: `formatMoney(amount, currency)`, `parseMoneyInput("1.500.000")`, `formatMoneyInput(1500000)`
+  - `wallet-totals.ts`: `totalBalanceByCurrency(wallets)`
+  - `date.ts` (sẽ có): tính khoảng ngày của tháng theo múi giờ
+  - `constants.ts`: danh mục mặc định, bảng màu danh mục
 - `@finance/api-client`
-  - `createApiClient({ baseUrl, getAccessToken, onRefresh })`
-  - Hook: `useTransactions`, `useCreateTransaction`, `useBudgets`, `useMonthlySummary`...
-  - Quy ước query key: `['transactions', filters]`, `['wallets']`, `['budgets', month]`, `['reports', type, params]`
+  - `createApiClient({ baseUrl, clientType?, refreshTokenStorage?, refreshLock? })`: `session`, `wallets`, `categories`...
+  - Hook: `useSession`, `useWallets`, `useCategories`, `useCreateWallet`...; sau này `useTransactions`, `useBudgets`, `useMonthlySummary`
+  - `forms.ts`: form state → request (dùng chung web và mobile)
+  - Quy ước query key (`query-keys.ts`): `['wallets']`, `['categories']`; sau này `['transactions', filters]`, `['budgets', month]`, `['reports', type, params]`
 
 ## Triển khai (gợi ý)
 

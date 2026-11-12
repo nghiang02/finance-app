@@ -50,10 +50,21 @@ export function useApiClient(): ApiClient {
   return client;
 }
 
+/**
+ * What the server renders: it never knows the session (the refresh cookie is not sent with
+ * page requests), so it is always "loading". A constant object, because React compares
+ * snapshots by reference.
+ */
+const SERVER_SESSION: SessionState = { status: "loading", user: null };
+const getServerSession = (): SessionState => SERVER_SESSION;
+
 /** { status: "loading" | "authenticated" | "unauthenticated", user } – re-renders on change. */
 export function useSession(): SessionState {
   const { session } = useApiClient();
-  return useSyncExternalStore(session.subscribe, session.getState, session.getState);
+  // During hydration React uses getServerSession, so the first client render matches the
+  // server HTML even if the client already knows the session (e.g. after a hot reload);
+  // React then re-renders with the real state. No-op on mobile, which has no server render.
+  return useSyncExternalStore(session.subscribe, session.getState, getServerSession);
 }
 
 export function useSignIn(): UseMutationResult<User, ApiError, LoginInput> {

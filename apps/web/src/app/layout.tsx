@@ -1,24 +1,25 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Be_Vietnam_Pro } from "next/font/google";
 
 import { Providers } from "@/components/Providers";
 
 import "./globals.css";
 
-// Inter ships a Vietnamese subset, so diacritics (ă, ơ, ư, ệ…) render in the same font.
-const inter = Inter({
-  variable: "--font-inter",
+// Be Vietnam Pro is designed for Vietnamese: diacritics (ă, ơ, ư, ệ…) sit well on every letter.
+const beVietnam = Be_Vietnam_Pro({
+  variable: "--font-be-vietnam",
   subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: { default: "Finance App", template: "%s · Finance App" },
+  title: { default: "Finance", template: "%s · Finance" },
   description: "Quản lý tài chính cá nhân",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="vi" className={`${inter.variable} h-full antialiased`}>
+    <html lang="vi" className={`${beVietnam.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col font-sans">
         <Providers>{children}</Providers>
       </body>

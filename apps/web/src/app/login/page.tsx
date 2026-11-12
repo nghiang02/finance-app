@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Đăng nhập" };
 
 export default function LoginPage() {
   return (
-    <AuthCard title="Đăng nhập">
+    <AuthCard title="Chào mừng trở lại 👋" subtitle="Đăng nhập để xem ví và chi tiêu của bạn.">
       <AuthGate mode="guest">
         <LoginForm />
       </AuthGate>
