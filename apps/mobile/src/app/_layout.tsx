@@ -1,11 +1,12 @@
 import { ApiClientProvider, shouldRetryRequest, useSession } from "@finance/api-client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
+import { Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { useColorScheme } from "react-native";
 
 import { apiClient } from "@/lib/api";
+import { navigationTheme } from "@/lib/theme";
 
 // Keep the splash screen up while the stored session is restored, so the user never sees
 // the sign-in screen flash before being sent to the home screen.
@@ -35,7 +36,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ApiClientProvider client={apiClient}>
-        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <ThemeProvider value={navigationTheme(colorScheme === "dark")}>
           <SplashGate />
           {/* Each group's layout decides whether the user may be there (see (app) and (auth)). */}
           <Stack screenOptions={{ headerShown: false }}>

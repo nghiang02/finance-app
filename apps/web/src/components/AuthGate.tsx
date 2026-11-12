@@ -1,6 +1,7 @@
 "use client";
 
 import { useSession } from "@finance/api-client";
+import { LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect } from "react";
 
@@ -30,9 +31,10 @@ export function AuthGate({ mode, children }: AuthGateProps) {
 
   if (status === "loading" || mustLeave) {
     return (
-      <p className="py-16 text-center text-zinc-500" role="status">
-        Đang tải…
-      </p>
+      <div role="status" className="flex flex-1 items-center justify-center py-24 text-brand-500">
+        <LoaderCircle aria-hidden className="size-8 animate-spin" />
+        <span className="sr-only">Đang tải…</span>
+      </div>
     );
   }
   return children;

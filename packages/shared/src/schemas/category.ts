@@ -115,6 +115,55 @@ export function buildCategoryTree(categories: readonly Category[]): CategoryNode
   return [...roots.values()];
 }
 
+export interface FlatCategoryOption {
+  category: Category;
+  /** 0 = top-level, 1 = child. */
+  depth: 0 | 1;
+}
+
+/** Tree order (each parent followed by its children) for pickers and selects. */
+export function flattenCategoryTree(categories: readonly Category[]): FlatCategoryOption[] {
+  return buildCategoryTree(categories).flatMap(({ children, ...parent }) => [
+    { category: parent, depth: 0 as const },
+    ...children.map((child) => ({ category: child, depth: 1 as const })),
+  ]);
+}
+
+/**
+ * Top-level categories of `type` that can be the parent of a new category, or of `editing`.
+ * Empty when `editing` has children: the tree has two levels at most.
+ * Mirrors the server rules, so the form only offers valid choices.
+ */
+export function parentCandidates(
+  categories: readonly Category[],
+  type: CategoryType,
+  editing?: Category,
+): Category[] {
+  if (editing && categories.some((category) => category.parentId === editing.id)) {
+    return [];
+  }
+  return categories.filter(
+    (category) =>
+      category.parentId === null && category.type === type && category.id !== editing?.id,
+  );
+}
+
+/**
+ * Categories that can receive the transactions of `deleting`: same type, and not `deleting`
+ * or one of its children (they are deleted with it).
+ */
+export function replacementCandidates(
+  categories: readonly Category[],
+  deleting: Category,
+): Category[] {
+  return categories.filter(
+    (category) =>
+      category.type === deleting.type &&
+      category.id !== deleting.id &&
+      category.parentId !== deleting.id,
+  );
+}
+
 export const CATEGORY_TYPE_LABELS: Record<CategoryType, string> = {
   INCOME: "Thu",
   EXPENSE: "Chi",

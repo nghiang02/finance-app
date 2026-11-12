@@ -63,3 +63,16 @@ export function parseMoneyInput(input: string): number | null {
   const value = Number(trimmed.replace(/\D/g, ""));
   return Number.isSafeInteger(value) ? value : null;
 }
+
+/**
+ * Formats an amount for an input field, without currency symbol or sign:
+ * formatMoneyInput(1500000) -> "1.500.000". The result is accepted by parseMoneyInput,
+ * so editing a value and saving it unchanged gives back the same number.
+ * Built by hand (not Intl) so web and mobile produce exactly the same string.
+ */
+export function formatMoneyInput(amount: number): string {
+  if (!Number.isSafeInteger(amount)) {
+    throw new RangeError(`amount must be a safe integer in minor units, got ${String(amount)}`);
+  }
+  return String(Math.abs(amount)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}

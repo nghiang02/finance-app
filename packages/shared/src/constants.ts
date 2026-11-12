@@ -63,3 +63,52 @@ export const DEFAULT_CATEGORIES: readonly DefaultCategory[] = [
   { name: "Thưởng", type: "INCOME", icon: "🎉", color: "#84CC16" },
   { name: "Thu nhập khác", type: "INCOME", icon: "💵", color: "#10B981" },
 ];
+
+/**
+ * Colors offered when creating or editing a category (Tailwind 500 shades, readable on light
+ * and dark backgrounds). Includes every default category color.
+ */
+export const CATEGORY_COLORS: readonly string[] = [
+  "#EF4444",
+  "#F97316",
+  "#F59E0B",
+  "#84CC16",
+  "#22C55E",
+  "#10B981",
+  "#14B8A6",
+  "#3B82F6",
+  "#6366F1",
+  "#8B5CF6",
+  "#EC4899",
+  "#6B7280",
+];
+
+/** Emoji offered as one-tap icons in the category form (any emoji can still be typed). */
+export const CATEGORY_ICON_SUGGESTIONS: readonly string[] = [
+  "🍜",
+  "☕",
+  "🛒",
+  "🛵",
+  "⛽",
+  "🏠",
+  "💡",
+  "📶",
+  "🛍️",
+  "🎬",
+  "💊",
+  "📚",
+  "🎁",
+  "✈️",
+  "🐶",
+  "👶",
+  "💪",
+  "💄",
+  "🎮",
+  "🧾",
+  "📦",
+  "💰",
+  "🎉",
+  "💵",
+  "📈",
+  "🏦",
+];

@@ -1,9 +1,12 @@
 import { useSession } from "@finance/api-client";
 import { Redirect, Stack } from "expo-router";
 
+import { useAppTheme } from "@/lib/theme";
+
 /** Sign-in and sign-up, for signed-out users only. */
 export default function AuthLayout() {
   const { status } = useSession();
+  const theme = useAppTheme();
 
   if (status === "loading") {
     return null;
@@ -14,9 +17,16 @@ export default function AuthLayout() {
   }
 
   return (
-    <Stack>
-      <Stack.Screen name="login" options={{ title: "Đăng nhập" }} />
-      <Stack.Screen name="register" options={{ title: "Tạo tài khoản" }} />
+    <Stack
+      screenOptions={{
+        title: "",
+        headerShadowVisible: false,
+        headerStyle: { backgroundColor: theme.surface },
+        headerBackButtonDisplayMode: "minimal",
+      }}
+    >
+      <Stack.Screen name="login" />
+      <Stack.Screen name="register" />
     </Stack>
   );
 }

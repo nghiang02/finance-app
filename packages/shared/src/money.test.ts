@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { formatMoney, getCurrencyFractionDigits, parseMoneyInput } from "./money.js";
+import {
+  formatMoney,
+  formatMoneyInput,
+  getCurrencyFractionDigits,
+  parseMoneyInput,
+} from "./money.js";
 
 /** Intl uses non-breaking spaces (U+00A0 / U+202F); normalize so tests stay readable. */
 const normalizeSpaces = (value: string): string => value.replace(/\s/g, " ");
@@ -58,5 +63,27 @@ describe("parseMoneyInput", () => {
 
   it("returns null when the value exceeds MAX_SAFE_INTEGER", () => {
     expect(parseMoneyInput("99999999999999999999")).toBeNull();
+  });
+});
+
+describe("formatMoneyInput", () => {
+  it.each([
+    [0, "0"],
+    [999, "999"],
+    [1_000, "1.000"],
+    [1_500_000, "1.500.000"],
+    [-250_000, "250.000"],
+  ])("formats %d as %s", (amount, expected) => {
+    expect(formatMoneyInput(amount)).toBe(expected);
+  });
+
+  it("round-trips through parseMoneyInput", () => {
+    for (const amount of [0, 7, 12_345, 1_500_000, 9_007_199_254_740_991]) {
+      expect(parseMoneyInput(formatMoneyInput(amount))).toBe(amount);
+    }
+  });
+
+  it("rejects non-integers", () => {
+    expect(() => formatMoneyInput(1.5)).toThrow(RangeError);
   });
 });

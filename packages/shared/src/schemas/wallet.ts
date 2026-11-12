@@ -64,3 +64,12 @@ export const WALLET_TYPE_LABELS: Record<WalletType, string> = {
   E_WALLET: "Ví điện tử",
   OTHER: "Khác",
 };
+
+/** Accent color per wallet type, so web and mobile show the same wallet the same way. */
+export const WALLET_TYPE_COLORS: Record<WalletType, string> = {
+  CASH: "#2DB84C",
+  BANK: "#2F80ED",
+  CREDIT_CARD: "#8B5CF6",
+  E_WALLET: "#F2994A",
+  OTHER: "#64748B",
+};

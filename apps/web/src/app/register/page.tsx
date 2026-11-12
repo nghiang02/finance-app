@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Đăng ký" };
 
 export default function RegisterPage() {
   return (
-    <AuthCard title="Tạo tài khoản">
+    <AuthCard title="Tạo tài khoản" subtitle="Miễn phí, chỉ cần email và mật khẩu.">
       <AuthGate mode="guest">
         <RegisterForm />
       </AuthGate>

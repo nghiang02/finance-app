@@ -6,6 +6,9 @@ import {
   categoryInUseDetailsSchema,
   createCategoryRequestSchema,
   deleteCategoryQuerySchema,
+  flattenCategoryTree,
+  parentCandidates,
+  replacementCandidates,
   updateCategoryRequestSchema,
 } from "./category.js";
 
@@ -98,5 +101,43 @@ describe("buildCategoryTree", () => {
 
   it("drops children whose parent is not in the list", () => {
     expect(buildCategoryTree([category({ id: "b", parentId: "missing" })])).toEqual([]);
+  });
+});
+
+describe("parentCandidates and replacementCandidates", () => {
+  const food = category({ id: "food", name: "Ăn uống" });
+  const coffee = category({ id: "coffee", name: "Cà phê", parentId: "food" });
+  const shopping = category({ id: "shopping", name: "Mua sắm" });
+  const salary = category({ id: "salary", name: "Lương", type: "INCOME" });
+  const all = [food, coffee, shopping, salary];
+
+  it("offers top-level categories of the same type as parents", () => {
+    expect(parentCandidates(all, "EXPENSE")).toEqual([food, shopping]);
+    expect(parentCandidates(all, "INCOME")).toEqual([salary]);
+  });
+
+  it("never offers the category itself, and nothing for a category with children", () => {
+    expect(parentCandidates(all, "EXPENSE", shopping)).toEqual([food]);
+    expect(parentCandidates(all, "EXPENSE", coffee)).toEqual([food, shopping]);
+    expect(parentCandidates(all, "EXPENSE", food)).toEqual([]);
+  });
+
+  it("excludes the deleted category, its children and the other type as replacements", () => {
+    expect(replacementCandidates(all, food)).toEqual([shopping]);
+    expect(replacementCandidates(all, coffee)).toEqual([food, shopping]);
+  });
+});
+
+describe("flattenCategoryTree", () => {
+  it("lists each parent followed by its children", () => {
+    const food = category({ id: "a", name: "Ăn uống" });
+    const coffee = category({ id: "b", name: "Cà phê", parentId: "a" });
+    const shopping = category({ id: "c", name: "Mua sắm" });
+
+    expect(flattenCategoryTree([food, shopping, coffee])).toEqual([
+      { category: food, depth: 0 },
+      { category: coffee, depth: 1 },
+      { category: shopping, depth: 0 },
+    ]);
   });
 });

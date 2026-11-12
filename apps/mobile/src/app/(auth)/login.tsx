@@ -1,15 +1,11 @@
-import {
-  describeError,
-  type FieldErrors,
-  serverFieldErrors,
-  toFieldErrors,
-  useSignIn,
-} from "@finance/api-client";
+import { type FieldErrors, serverFieldErrors, toFieldErrors, useSignIn } from "@finance/api-client";
 import { loginRequestSchema } from "@finance/shared";
 import { Link, useTheme } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text } from "react-native";
 
+import { AuthHeader } from "@/components/AuthHeader";
+import { FormError } from "@/components/FormError";
 import { FormScreen } from "@/components/FormScreen";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { TextField } from "@/components/TextField";
@@ -35,6 +31,10 @@ export default function LoginScreen() {
 
   return (
     <FormScreen>
+      <AuthHeader
+        title="Chào mừng trở lại 👋"
+        subtitle="Đăng nhập để xem ví và chi tiêu của bạn."
+      />
       <TextField
         label="Email"
         value={email}
@@ -58,11 +58,10 @@ export default function LoginScreen() {
         onSubmitEditing={handleSubmit}
       />
 
-      {signIn.isError ? (
-        <Text accessibilityRole="alert" style={styles.formError}>
-          {describeError(signIn.error, { UNAUTHORIZED: "Email hoặc mật khẩu không đúng." })}
-        </Text>
-      ) : null}
+      <FormError
+        error={signIn.error}
+        overrides={{ UNAUTHORIZED: "Email hoặc mật khẩu không đúng." }}
+      />
 
       <PrimaryButton title="Đăng nhập" onPress={handleSubmit} loading={signIn.isPending} />
 
@@ -77,7 +76,6 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  formError: { color: "#dc2626", fontSize: 14 },
   footer: { textAlign: "center", fontSize: 14 },
   link: { fontWeight: "600" },
 });
