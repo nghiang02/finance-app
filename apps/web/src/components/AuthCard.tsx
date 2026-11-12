@@ -48,7 +48,7 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps) {
         <p className="relative text-sm text-white/70">Dự án cá nhân · NestJS · Next.js · Expo</p>
       </section>
 
-      <section className="flex flex-1 items-center justify-center px-6 py-12">
+      <section className="flex flex-1 items-center justify-center bg-surface px-6 py-12">
         <div className="flex w-full max-w-sm flex-col gap-8">
           <Logo className="lg:hidden" />
           <div className="flex flex-col gap-2">
