@@ -11,6 +11,7 @@ import {
 import { HttpStatus, Injectable } from "@nestjs/common";
 
 import { ApiException } from "../common/api-exception.js";
+import { lockCategory, type LockedCategory } from "../common/locks.js";
 import { fieldError } from "../common/validation.js";
 import type { Category, Prisma } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -32,16 +33,6 @@ function categoryNotFound(): ApiException {
   // Same answer for "does not exist" and "belongs to someone else".
   return new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Category not found");
 }
-
-/** The columns the business rules need, read with a row lock. */
-interface LockedCategory {
-  id: string;
-  type: CategoryType;
-  parentId: string | null;
-  color: string | null;
-}
-
-type LockMode = "update" | "share";
 
 @Injectable()
 export class CategoriesService {
@@ -93,7 +84,7 @@ export class CategoriesService {
 
   async update(userId: string, id: string, input: UpdateCategoryRequest): Promise<CategoryDto> {
     return this.prisma.$transaction(async (tx) => {
-      const current = await this.lockCategory(tx, userId, id, "update");
+      const current = await lockCategory(tx, userId, id, "update");
       if (!current) {
         throw categoryNotFound();
       }
@@ -140,7 +131,7 @@ export class CategoriesService {
    */
   async remove(userId: string, id: string, replacementId: string | undefined): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
-      const target = await this.lockCategory(tx, userId, id, "update");
+      const target = await lockCategory(tx, userId, id, "update");
       if (!target) {
         throw categoryNotFound();
       }
@@ -178,7 +169,7 @@ export class CategoriesService {
             "Danh mục thay thế không được là danh mục đang xóa hoặc danh mục con của nó",
           );
         }
-        const replacement = await this.lockCategory(tx, userId, replacementId, "share");
+        const replacement = await lockCategory(tx, userId, replacementId, "share");
         if (!replacement) {
           throw fieldError("replacementId", "Danh mục thay thế không tồn tại");
         }
@@ -242,7 +233,7 @@ export class CategoriesService {
     parentId: string,
     childType: CategoryType,
   ): Promise<LockedCategory> {
-    const parent = await this.lockCategory(tx, userId, parentId, "share");
+    const parent = await lockCategory(tx, userId, parentId, "share");
     if (!parent) {
       throw fieldError("parentId", "Danh mục cha không tồn tại");
     }
@@ -253,37 +244,5 @@ export class CategoriesService {
       throw fieldError("parentId", "Danh mục con phải cùng loại thu/chi với danh mục cha");
     }
     return parent;
-  }
-
-  /**
-   * Reads an active category of the user and locks its row until the transaction ends.
-   * Prisma has no API for row locks, hence raw SQL (parameterized by the tagged template,
-   * so the values are never concatenated into the query).
-   *
-   * - "update" (FOR UPDATE): the row is about to change; others wait to read-lock or change it.
-   * - "share" (FOR SHARE): the row must stay as read (e.g. a parent); others can still read it,
-   *   but a concurrent move or delete of it waits for us.
-   * A waiting statement re-checks `deletedAt IS NULL` afterwards, so it never acts on a row
-   * that was deleted meanwhile.
-   */
-  private async lockCategory(
-    tx: Prisma.TransactionClient,
-    userId: string,
-    id: string,
-    mode: LockMode,
-  ): Promise<LockedCategory | null> {
-    const rows =
-      mode === "update"
-        ? await tx.$queryRaw<LockedCategory[]>`
-            SELECT "id", "type"::text AS "type", "parentId", "color"
-            FROM "Category"
-            WHERE "id" = ${id} AND "userId" = ${userId} AND "deletedAt" IS NULL
-            FOR UPDATE`
-        : await tx.$queryRaw<LockedCategory[]>`
-            SELECT "id", "type"::text AS "type", "parentId", "color"
-            FROM "Category"
-            WHERE "id" = ${id} AND "userId" = ${userId} AND "deletedAt" IS NULL
-            FOR SHARE`;
-    return rows[0] ?? null;
   }
 }

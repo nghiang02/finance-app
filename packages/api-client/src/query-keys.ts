@@ -6,4 +6,7 @@ export const queryKeys = {
   health: ["health"] as const,
   wallets: ["wallets"] as const,
   categories: ["categories"] as const,
+  /** Root of every transaction query: invalidating it refreshes lists and single items. */
+  transactions: ["transactions"] as const,
+  transaction: (id: string) => ["transactions", "detail", id] as const,
 };

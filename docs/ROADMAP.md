@@ -24,7 +24,7 @@
 
 ## Giai đoạn 3 – Giao dịch
 
-- [ ] CRUD giao dịch thu/chi/chuyển ví, cập nhật số dư trong transaction
+- [x] CRUD giao dịch thu/chi/chuyển ví, cập nhật số dư trong transaction
 - [ ] Danh sách giao dịch theo tháng, lọc, tìm kiếm, phân trang cursor
 - [ ] Mobile: màn thêm nhanh giao dịch
 - [ ] Web: bảng giao dịch có lọc và sửa

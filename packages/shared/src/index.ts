@@ -5,5 +5,6 @@ export * from "./schemas/category.js";
 export * from "./schemas/common.js";
 export * from "./schemas/error.js";
 export * from "./schemas/health.js";
+export * from "./schemas/transaction.js";
 export * from "./schemas/wallet.js";
 export * from "./wallet-totals.js";
