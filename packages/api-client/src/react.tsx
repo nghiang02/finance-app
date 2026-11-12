@@ -1,11 +1,14 @@
 import type {
   Category,
   CreateCategoryInput,
+  CreateTransactionInput,
   CreateWalletInput,
   HealthResponse,
   LoginInput,
   RegisterInput,
+  Transaction,
   UpdateCategoryInput,
+  UpdateTransactionInput,
   UpdateWalletInput,
   User,
   Wallet,
@@ -208,8 +211,76 @@ export function useDeleteCategory(): UseMutationResult<
 > {
   const client = useApiClient();
   const invalidate = useInvalidateCategories();
+  const queryClient = useQueryClient();
   return useMutation<undefined, ApiError, DeleteCategoryVariables>({
     mutationFn: ({ id, replacementId }) => client.categories.remove(id, replacementId),
+    // Its transactions moved to the replacement category, so transaction lists change too.
+    onSuccess: () =>
+      Promise.all([
+        invalidate(),
+        queryClient.invalidateQueries({ queryKey: queryKeys.transactions }),
+      ]),
+  });
+}
+
+/** One transaction, e.g. for an edit screen opened from a link. */
+export function useTransaction(id: string): UseQueryResult<Transaction, ApiError> {
+  const client = useApiClient();
+  return useQuery<Transaction, ApiError>({
+    queryKey: queryKeys.transaction(id),
+    queryFn: ({ signal }) => client.transactions.get(id, signal),
+  });
+}
+
+/**
+ * A transaction changes wallet balances (computed by the server) as well as transaction
+ * lists, so both are refetched after every change.
+ */
+function useInvalidateTransactions() {
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.transactions }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.wallets }),
+    ]);
+}
+
+export function useCreateTransaction(): UseMutationResult<
+  Transaction,
+  ApiError,
+  CreateTransactionInput
+> {
+  const client = useApiClient();
+  const invalidate = useInvalidateTransactions();
+  return useMutation<Transaction, ApiError, CreateTransactionInput>({
+    mutationFn: (input) => client.transactions.create(input),
+    onSuccess: invalidate,
+  });
+}
+
+export interface UpdateTransactionVariables {
+  id: string;
+  changes: UpdateTransactionInput;
+}
+
+export function useUpdateTransaction(): UseMutationResult<
+  Transaction,
+  ApiError,
+  UpdateTransactionVariables
+> {
+  const client = useApiClient();
+  const invalidate = useInvalidateTransactions();
+  return useMutation<Transaction, ApiError, UpdateTransactionVariables>({
+    mutationFn: ({ id, changes }) => client.transactions.update(id, changes),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteTransaction(): UseMutationResult<undefined, ApiError, string> {
+  const client = useApiClient();
+  const invalidate = useInvalidateTransactions();
+  return useMutation<undefined, ApiError, string>({
+    mutationFn: (id) => client.transactions.remove(id),
     onSuccess: invalidate,
   });
 }

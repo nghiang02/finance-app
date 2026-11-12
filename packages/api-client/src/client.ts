@@ -8,12 +8,16 @@ import {
   CLIENT_TYPE_HEADER,
   type ClientType,
   type CreateCategoryInput,
+  type CreateTransactionInput,
   type CreateWalletInput,
   healthResponseSchema,
   type HealthResponse,
   type LoginInput,
   type RegisterInput,
+  type Transaction,
+  transactionSchema,
   type UpdateCategoryInput,
+  type UpdateTransactionInput,
   type UpdateWalletInput,
   type User,
   userSchema,
@@ -356,6 +360,27 @@ export function createApiClient(options: ApiClientOptions) {
         request(`/categories/${encodeURIComponent(id)}`, {
           method: "DELETE",
           query: { replacementId },
+          schema: noContentSchema,
+        }),
+    },
+
+    transactions: {
+      get: (id: string, signal?: AbortSignal): Promise<Transaction> =>
+        request(`/transactions/${encodeURIComponent(id)}`, {
+          schema: transactionSchema,
+          ...(signal ? { signal } : {}),
+        }),
+      create: (body: CreateTransactionInput): Promise<Transaction> =>
+        request("/transactions", { method: "POST", body, schema: transactionSchema }),
+      update: (id: string, body: UpdateTransactionInput): Promise<Transaction> =>
+        request(`/transactions/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          body,
+          schema: transactionSchema,
+        }),
+      remove: (id: string): Promise<undefined> =>
+        request(`/transactions/${encodeURIComponent(id)}`, {
+          method: "DELETE",
           schema: noContentSchema,
         }),
     },

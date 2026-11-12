@@ -217,6 +217,15 @@ Phân trang danh sách giao dịch theo cursor (`occurredAt` + `id`).
 - **Font web**: Be Vietnam Pro (thiết kế cho tiếng Việt). Mobile dùng font hệ thống.
 - **Bố cục**: web có sidebar trên màn hình lớn và thanh tab dưới trên điện thoại; mobile có tiêu đề lớn tự vẽ (`ScreenHeader`) ở mỗi tab. Thẻ tổng số dư màu xanh có nút ẩn/hiện số tiền (`useBalanceVisibility`, web nhớ trong `localStorage`).
 
+## Giao dịch (Giai đoạn 3)
+
+- **API**: `POST /transactions`, `GET/PATCH/DELETE /transactions/:id` (xóa mềm, `204`). Danh sách theo tháng có lọc và phân trang là mục tiếp theo.
+- **Schema theo loại** (`createTransactionRequestSchema`, discriminated union theo `type`): `INCOME`/`EXPENSE` bắt buộc `categoryId`, `TRANSFER` bắt buộc `toWalletId` khác `walletId`; field của loại kia bị từ chối (`strictObject`). Số tiền là số nguyên **> 0**. `occurredAt` là ISO 8601 **có múi giờ** (ví dụ `+07:00`), server lưu UTC và trả về dạng `Z`. Ghi chú để trống thành `null`. CHECK constraint `Transaction_type_shape` trong database giữ cùng quy tắc.
+- **Sửa (PATCH)**: body là một phần bất kỳ, kể cả `type`. `mergeTransactionUpdate` (hàm thuần, có unit test) gộp với bản đang lưu rồi kiểm tra lại bằng **chính schema tạo mới**, nên sửa và tạo theo cùng quy tắc. Đổi loại thì field của loại cũ bị bỏ (chi → chuyển ví mất danh mục và phải có ví nhận).
+- **Quy tắc cần database** (lỗi `400` theo trường): ví và danh mục phải của người dùng và chưa xóa (của người khác trả "không tồn tại", không lộ là có); danh mục cùng loại với giao dịch; ví đã lưu trữ không nhận giao dịch mới (giao dịch cũ trong ví đó vẫn sửa được); chuyển ví chỉ giữa hai ví cùng tiền tệ (chưa có tỷ giá).
+- **Số dư**: không có cột số dư để cập nhật (số dư tính từ giao dịch, xem mục Ví). Thay vào đó, mỗi lần tạo/sửa kiểm tra ví, danh mục và ghi giao dịch trong **một** `prisma.$transaction`, khóa `FOR SHARE` các ví và danh mục được tham chiếu (`common/locks.ts`): xóa ví hoặc xóa danh mục cùng lúc sẽ phải chờ, hoặc làm bước kiểm tra thất bại, nên không có giao dịch rơi vào ví/danh mục đã xóa.
+- **Client**: `useTransaction(id)`, `useCreateTransaction`, `useUpdateTransaction`, `useDeleteTransaction`; mỗi thay đổi làm mới `['transactions']` và `['wallets']` (số dư). Xóa danh mục cũng làm mới `['transactions']` vì giao dịch đã chuyển sang danh mục thay thế.
+
 ## Package dùng chung
 
 - `@finance/shared`
@@ -229,7 +238,7 @@ Phân trang danh sách giao dịch theo cursor (`occurredAt` + `id`).
   - `createApiClient({ baseUrl, clientType?, refreshTokenStorage?, refreshLock? })`: `session`, `wallets`, `categories`...
   - Hook: `useSession`, `useWallets`, `useCategories`, `useCreateWallet`...; sau này `useTransactions`, `useBudgets`, `useMonthlySummary`
   - `forms.ts`: form state → request (dùng chung web và mobile)
-  - Quy ước query key (`query-keys.ts`): `['wallets']`, `['categories']`; sau này `['transactions', filters]`, `['budgets', month]`, `['reports', type, params]`
+  - Quy ước query key (`query-keys.ts`): `['wallets']`, `['categories']`, `['transactions']` (gốc), `['transactions', 'detail', id]`; sau này `['transactions', filters]`, `['budgets', month]`, `['reports', type, params]`
 
 ## Triển khai (gợi ý)
 

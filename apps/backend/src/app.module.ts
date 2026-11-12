@@ -8,6 +8,7 @@ import { CategoriesModule } from "./categories/categories.module.js";
 import { ConfigModule } from "./config/config.module.js";
 import { HealthModule } from "./health/health.module.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
+import { TransactionsModule } from "./transactions/transactions.module.js";
 import { WalletsModule } from "./wallets/wallets.module.js";
 
 @Module({
@@ -19,6 +20,7 @@ import { WalletsModule } from "./wallets/wallets.module.js";
     AuthModule,
     CategoriesModule,
     HealthModule,
+    TransactionsModule,
     WalletsModule,
   ],
   providers: [
