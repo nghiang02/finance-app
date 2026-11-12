@@ -19,3 +19,8 @@ export const currencyCodeSchema = z
   .trim()
   .toUpperCase()
   .regex(/^[A-Z]{3}$/, "Mã tiền tệ gồm 3 chữ cái, ví dụ VND");
+
+/** A calendar month, "YYYY-MM". Which instants it covers depends on the user's time zone. */
+export const monthSchema = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Tháng không hợp lệ, ví dụ 2026-11");

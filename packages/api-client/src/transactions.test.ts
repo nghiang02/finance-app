@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createApiClient } from "./client.js";
 import { queryKeys } from "./query-keys.js";
+import { normalizeTransactionFilters } from "./react.js";
 
 const TRANSACTION = {
   id: "6f1c2d9e-8a4b-4c3d-9e2f-1a2b3c4d5e6f",
@@ -70,5 +71,37 @@ describe("transactions endpoints", () => {
 
   it("keeps single-transaction keys under the root key, so one invalidation covers both", () => {
     expect(queryKeys.transaction("x").slice(0, 1)).toEqual([...queryKeys.transactions]);
+  });
+});
+
+describe("transaction list", () => {
+  it("sends filters and cursor as query parameters and skips empty ones", async () => {
+    const { client, call } = setup(json({ items: [TRANSACTION], nextCursor: "abc" }));
+
+    await expect(
+      client.transactions.list({
+        month: "2026-11",
+        walletId: TRANSACTION.walletId,
+        q: "phở bò",
+        cursor: "xyz",
+      }),
+    ).resolves.toEqual({ items: [TRANSACTION], nextCursor: "abc" });
+    expect(call().url).toBe(
+      `http://api.test/api/v1/transactions?month=2026-11&walletId=${TRANSACTION.walletId}&q=ph%E1%BB%9F%20b%C3%B2&cursor=xyz`,
+    );
+  });
+
+  it("normalizes filters so equivalent screens share a cache entry", () => {
+    expect(normalizeTransactionFilters({ month: "2026-11", q: "  ", walletId: "" })).toEqual({
+      month: "2026-11",
+    });
+    expect(normalizeTransactionFilters({ month: "2026-11", type: "EXPENSE", q: " phở " })).toEqual({
+      month: "2026-11",
+      type: "EXPENSE",
+      q: "phở",
+    });
+    expect(queryKeys.transactionList({ month: "2026-11" }).slice(0, 1)).toEqual([
+      ...queryKeys.transactions,
+    ]);
   });
 });

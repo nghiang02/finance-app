@@ -219,12 +219,17 @@ Phân trang danh sách giao dịch theo cursor (`occurredAt` + `id`).
 
 ## Giao dịch (Giai đoạn 3)
 
-- **API**: `POST /transactions`, `GET/PATCH/DELETE /transactions/:id` (xóa mềm, `204`). Danh sách theo tháng có lọc và phân trang là mục tiếp theo.
+- **API**: `GET /transactions` (danh sách theo tháng, xem bên dưới), `POST /transactions`, `GET/PATCH/DELETE /transactions/:id` (xóa mềm, `204`).
 - **Schema theo loại** (`createTransactionRequestSchema`, discriminated union theo `type`): `INCOME`/`EXPENSE` bắt buộc `categoryId`, `TRANSFER` bắt buộc `toWalletId` khác `walletId`; field của loại kia bị từ chối (`strictObject`). Số tiền là số nguyên **> 0**. `occurredAt` là ISO 8601 **có múi giờ** (ví dụ `+07:00`), server lưu UTC và trả về dạng `Z`. Ghi chú để trống thành `null`. CHECK constraint `Transaction_type_shape` trong database giữ cùng quy tắc.
 - **Sửa (PATCH)**: body là một phần bất kỳ, kể cả `type`. `mergeTransactionUpdate` (hàm thuần, có unit test) gộp với bản đang lưu rồi kiểm tra lại bằng **chính schema tạo mới**, nên sửa và tạo theo cùng quy tắc. Đổi loại thì field của loại cũ bị bỏ (chi → chuyển ví mất danh mục và phải có ví nhận).
 - **Quy tắc cần database** (lỗi `400` theo trường): ví và danh mục phải của người dùng và chưa xóa (của người khác trả "không tồn tại", không lộ là có); danh mục cùng loại với giao dịch; ví đã lưu trữ không nhận giao dịch mới (giao dịch cũ trong ví đó vẫn sửa được); chuyển ví chỉ giữa hai ví cùng tiền tệ (chưa có tỷ giá).
 - **Số dư**: không có cột số dư để cập nhật (số dư tính từ giao dịch, xem mục Ví). Thay vào đó, mỗi lần tạo/sửa kiểm tra ví, danh mục và ghi giao dịch trong **một** `prisma.$transaction`, khóa `FOR SHARE` các ví và danh mục được tham chiếu (`common/locks.ts`): xóa ví hoặc xóa danh mục cùng lúc sẽ phải chờ, hoặc làm bước kiểm tra thất bại, nên không có giao dịch rơi vào ví/danh mục đã xóa.
-- **Client**: `useTransaction(id)`, `useCreateTransaction`, `useUpdateTransaction`, `useDeleteTransaction`; mỗi thay đổi làm mới `['transactions']` và `['wallets']` (số dư). Xóa danh mục cũng làm mới `['transactions']` vì giao dịch đã chuyển sang danh mục thay thế.
+- **Danh sách** `GET /transactions?month=YYYY-MM&walletId=&categoryId=&type=&q=&cursor=&limit=` → `{ items, nextCursor }`, mới nhất trước:
+  - **Tháng theo múi giờ người dùng** (`User.timezone`): `monthRange` trong `@finance/shared/date.ts` đổi `"2026-11"` thành khoảng UTC `[2026-10-31T17:00Z, 2026-11-30T17:00Z)` cho `Asia/Ho_Chi_Minh`. Chỉ dùng `Intl` (không thêm thư viện ngày), tính lại offset hai lần để đúng cả khi đổi giờ mùa hè; có test cho Việt Nam, New York, Auckland, UTC.
+  - **Lọc**: `walletId` lấy cả tiền **chuyển đến** ví đó; `categoryId` lấy cả **danh mục con**; `q` tìm trong ghi chú và tên danh mục (`ILIKE`, không phân biệt hoa thường; chưa bỏ dấu, "pho" không khớp "phở" — cần extension `unaccent` nếu muốn).
+  - **Phân trang keyset** theo `(occurredAt, id)` (`transactions/cursor.ts`), không dùng `OFFSET`: thêm giao dịch trong lúc cuộn không làm trùng/sót dòng, và truy vấn đi thẳng vào index `(userId, occurredAt, id)`. Lấy `limit + 1` dòng để biết còn trang sau mà không cần `COUNT`. Cursor là base64url JSON, không ký: sửa nó cũng chỉ đi lại trong dữ liệu của chính người dùng vì mọi truy vấn đều lọc `userId`.
+  - Giao dịch của ví đã xóa mềm vẫn hiện (giống báo cáo), giao dịch đã xóa thì không.
+- **Client**: `useTransactions(filters)` (`useInfiniteQuery`, `fetchNextPage` khi cuộn tới cuối; bộ lọc được chuẩn hóa để `{ q: "" }` và không có `q` dùng chung cache), `useTransaction(id)`, `useCreateTransaction`, `useUpdateTransaction`, `useDeleteTransaction`; mỗi thay đổi làm mới `['transactions']` và `['wallets']` (số dư). Xóa danh mục cũng làm mới `['transactions']` vì giao dịch đã chuyển sang danh mục thay thế.
 
 ## Package dùng chung
 
@@ -232,13 +237,13 @@ Phân trang danh sách giao dịch theo cursor (`occurredAt` + `id`).
   - `schemas/`: Zod schema cho từng resource (create/update/query/response) và helper thuần theo resource (`buildCategoryTree`, `parentCandidates`...)
   - `money.ts`: `formatMoney(amount, currency)`, `parseMoneyInput("1.500.000")`, `formatMoneyInput(1500000)`
   - `wallet-totals.ts`: `totalBalanceByCurrency(wallets)`
-  - `date.ts` (sẽ có): tính khoảng ngày của tháng theo múi giờ
+  - `date.ts`: `monthRange`, `monthOf`, `currentMonth`, `shiftMonth`, `localDateKey` theo múi giờ người dùng
   - `constants.ts`: danh mục mặc định, bảng màu danh mục
 - `@finance/api-client`
   - `createApiClient({ baseUrl, clientType?, refreshTokenStorage?, refreshLock? })`: `session`, `wallets`, `categories`...
-  - Hook: `useSession`, `useWallets`, `useCategories`, `useCreateWallet`...; sau này `useTransactions`, `useBudgets`, `useMonthlySummary`
+  - Hook: `useSession`, `useWallets`, `useCategories`, `useTransactions`, `useCreateWallet`...; sau này `useBudgets`, `useMonthlySummary`
   - `forms.ts`: form state → request (dùng chung web và mobile)
-  - Quy ước query key (`query-keys.ts`): `['wallets']`, `['categories']`, `['transactions']` (gốc), `['transactions', 'detail', id]`; sau này `['transactions', filters]`, `['budgets', month]`, `['reports', type, params]`
+  - Quy ước query key (`query-keys.ts`): `['wallets']`, `['categories']`, `['transactions']` (gốc), `['transactions', 'detail', id]`, `['transactions', 'list', filters]`; sau này `['budgets', month]`, `['reports', type, params]`
 
 ## Triển khai (gợi ý)
 

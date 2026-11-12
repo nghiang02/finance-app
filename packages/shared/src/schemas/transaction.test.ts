@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createTransactionRequestSchema,
+  transactionListQuerySchema,
   transactionSchema,
   updateTransactionRequestSchema,
 } from "./transaction.js";
@@ -146,5 +147,31 @@ describe("transactionSchema", () => {
         updatedAt: "2026-11-12T02:30:00.000Z",
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("transactionListQuerySchema", () => {
+  it("needs a month and fills the default page size", () => {
+    expect(transactionListQuerySchema.parse({ month: "2026-11" })).toEqual({
+      month: "2026-11",
+      limit: 30,
+    });
+    expect(transactionListQuerySchema.safeParse({}).success).toBe(false);
+    expect(transactionListQuerySchema.safeParse({ month: "2026-13" }).success).toBe(false);
+  });
+
+  it("reads URL strings: coerces the limit and drops a blank search", () => {
+    expect(
+      transactionListQuerySchema.parse({ month: "2026-11", limit: "10", q: "  ", type: "EXPENSE" }),
+    ).toEqual({ month: "2026-11", limit: 10, type: "EXPENSE" });
+  });
+
+  it("bounds the page size", () => {
+    expect(transactionListQuerySchema.safeParse({ month: "2026-11", limit: "0" }).success).toBe(
+      false,
+    );
+    expect(transactionListQuerySchema.safeParse({ month: "2026-11", limit: "500" }).success).toBe(
+      false,
+    );
   });
 });

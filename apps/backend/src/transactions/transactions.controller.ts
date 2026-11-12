@@ -3,6 +3,9 @@ import {
   type CreateTransactionRequest,
   idSchema,
   type Transaction,
+  transactionListQuerySchema,
+  type TransactionListQuery,
+  type TransactionPage,
   updateTransactionRequestSchema,
   type UpdateTransactionRequest,
 } from "@finance/shared";
@@ -16,6 +19,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from "@nestjs/common";
 
 import { type AuthUser, CurrentUser } from "../auth/current-user.decorator.js";
@@ -25,6 +29,15 @@ import { TransactionsService } from "./transactions.service.js";
 @Controller("transactions")
 export class TransactionsController {
   constructor(private readonly transactions: TransactionsService) {}
+
+  /** GET /api/v1/transactions?month=2026-11&walletId=&categoryId=&type=&q=&cursor=&limit= */
+  @Get()
+  list(
+    @CurrentUser() user: AuthUser,
+    @Query({ schema: transactionListQuerySchema }) query: TransactionListQuery,
+  ): Promise<TransactionPage> {
+    return this.transactions.list(user.id, query);
+  }
 
   @Get(":id")
   get(

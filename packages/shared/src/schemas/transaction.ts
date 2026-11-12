@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { idSchema, moneySchema } from "./common.js";
+import { idSchema, moneySchema, monthSchema } from "./common.js";
 
 export const TRANSACTION_TYPES = ["INCOME", "EXPENSE", "TRANSFER"] as const;
 export const transactionTypeSchema = z.enum(TRANSACTION_TYPES);
@@ -109,6 +109,43 @@ export const transactionSchema = z.object({
   updatedAt: z.iso.datetime(),
 });
 export type Transaction = z.infer<typeof transactionSchema>;
+
+/** Page size of GET /transactions when `limit` is omitted. */
+export const DEFAULT_TRANSACTION_PAGE_SIZE = 30;
+
+/**
+ * Query of GET /transactions. Values arrive as strings (URL), hence the coercion of `limit`.
+ * - `walletId`: money leaving OR arriving in the wallet (incoming transfers included).
+ * - `categoryId`: the category and its children.
+ * - `q`: searched in the note and the category name, case-insensitively.
+ * - `cursor`: `nextCursor` from the previous page; omit for the first page.
+ */
+export const transactionListQuerySchema = z.object({
+  month: monthSchema,
+  walletId: idSchema.optional(),
+  categoryId: idSchema.optional(),
+  type: transactionTypeSchema.optional(),
+  q: z
+    .string()
+    .trim()
+    .max(100, "Từ khóa tối đa 100 ký tự")
+    .optional()
+    .transform((q) => (q === "" ? undefined : q)),
+  cursor: z.string().min(1).max(200).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(DEFAULT_TRANSACTION_PAGE_SIZE),
+});
+export type TransactionListQuery = z.infer<typeof transactionListQuerySchema>;
+/** What a client passes (limit optional, everything as typed). */
+export type TransactionListInput = z.input<typeof transactionListQuerySchema>;
+/** The filters only: what a list screen keeps in its state and query key. */
+export type TransactionFilters = Omit<TransactionListInput, "cursor" | "limit">;
+
+/** One page, newest first. `nextCursor` is null on the last page. */
+export const transactionPageSchema = z.object({
+  items: z.array(transactionSchema),
+  nextCursor: z.string().nullable(),
+});
+export type TransactionPage = z.infer<typeof transactionPageSchema>;
 
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   INCOME: "Khoản thu",
